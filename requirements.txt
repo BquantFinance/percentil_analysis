@@ -6,3 +6,4 @@ matplotlib
 ta-lib-bin
 yfinance
 scipy
+scikit-learn
