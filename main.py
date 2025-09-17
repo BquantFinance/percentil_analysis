@@ -737,8 +737,35 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
         row=1, col=1
     )
     
+    # Add KDE curve
+    if len(hist_data) > 1:
+        try:
+            from scipy import stats as scipy_stats
+            kde = scipy_stats.gaussian_kde(hist_data)
+            x_range = np.linspace(hist_data.min(), hist_data.max(), 200)
+            kde_values = kde(x_range)
+            
+            # Scale KDE to match histogram
+            hist_counts, _ = np.histogram(hist_data, bins=50)
+            kde_scale = max(hist_counts) / max(kde_values) * 0.8
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=x_range,
+                    y=kde_values * kde_scale,
+                    mode='lines',
+                    line=dict(color='#FFD93D', width=3),
+                    name='KDE',
+                    showlegend=False
+                ),
+                row=1, col=1
+            )
+        except:
+            pass
+    
     # Add mean line
     mean_val = hist_data.mean()
+    std_val = hist_data.std()
     fig.add_vline(x=mean_val, line=dict(color='#FF1744', width=2),
                   row=1, col=1, annotation_text=f'μ={mean_val:.2f}')
     
@@ -853,6 +880,15 @@ def create_optimal_visualization(results_df):
     """Visualización de períodos óptimos"""
     if results_df.empty:
         return None
+    
+    # Ensure score column exists
+    if 'score' not in results_df.columns:
+        # Create score if it doesn't exist
+        results_df['score'] = (
+            abs(results_df['spread']) * 0.5 +
+            results_df['sharpe'] * 10 +
+            (1 / (results_df['p_value'] + 0.001)) * 0.1
+        )
     
     fig = make_subplots(
         rows=2, cols=2,
@@ -1183,20 +1219,42 @@ def main():
                     st.plotly_chart(fig, use_container_width=True)
                 
                 st.markdown("#### Top Configurations")
-                display_df = optimal_results[['indicator', 'period', 'spread', 
-                                             'direction', 'p_value', 'sharpe', 
-                                             'score']].head(15)
+                # Check which columns exist
+                available_columns = ['indicator', 'period', 'spread', 'direction', 
+                                    'p_value', 'sharpe', 'score']
+                display_columns = [col for col in available_columns if col in optimal_results.columns]
                 
-                st.dataframe(
-                    display_df.style.format({
-                        'spread': '{:.2f}%',
-                        'direction': '{:.3f}',
-                        'p_value': '{:.4f}',
-                        'sharpe': '{:.3f}',
-                        'score': '{:.2f}'
-                    }).background_gradient(subset=['spread', 'score'], cmap='RdYlGn'),
-                    use_container_width=True
-                )
+                if display_columns:
+                    display_df = optimal_results[display_columns].head(15)
+                    
+                    # Format only columns that exist
+                    format_dict = {}
+                    if 'spread' in display_df.columns:
+                        format_dict['spread'] = '{:.2f}%'
+                    if 'direction' in display_df.columns:
+                        format_dict['direction'] = '{:.3f}'
+                    if 'p_value' in display_df.columns:
+                        format_dict['p_value'] = '{:.4f}'
+                    if 'sharpe' in display_df.columns:
+                        format_dict['sharpe'] = '{:.3f}'
+                    if 'score' in display_df.columns:
+                        format_dict['score'] = '{:.2f}'
+                    
+                    # Gradient only on columns that exist
+                    gradient_cols = [col for col in ['spread', 'score'] if col in display_df.columns]
+                    
+                    if gradient_cols:
+                        st.dataframe(
+                            display_df.style.format(format_dict).background_gradient(
+                                subset=gradient_cols, cmap='RdYlGn'
+                            ),
+                            use_container_width=True
+                        )
+                    else:
+                        st.dataframe(
+                            display_df.style.format(format_dict),
+                            use_container_width=True
+                        )
         
         with tab4:
             st.markdown("### 📋 Trading Rules")
