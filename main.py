@@ -116,7 +116,7 @@ def calculate_selected_indicators_returns(ticker, start_date='2000-01-01', end_d
         
         # Descargar datos
         st.info(f"📥 Descargando datos para {ticker}...")
-        data = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
+        data = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True, multi_level_index=False)
         
         if data.empty:
             st.error(f"❌ No se encontraron datos para {ticker}")
