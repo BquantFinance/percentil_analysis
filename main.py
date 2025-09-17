@@ -805,6 +805,10 @@ def main():
         st.session_state.data = None
         st.session_state.optimal_results = None
     
+    # Ensure optimal_results exists (for backwards compatibility)
+    if 'optimal_results' not in st.session_state:
+        st.session_state.optimal_results = None
+    
     with st.sidebar:
         st.markdown("## ⚙️ Configuración")
         
@@ -992,7 +996,7 @@ def main():
         with tab3:
             st.markdown("### 🎯 Optimal Period Discovery")
             
-            if not optimal_results.empty:
+            if optimal_results is not None and not optimal_results.empty:
                 col1, col2, col3, col4 = st.columns(4)
                 
                 best = optimal_results.iloc[0]
@@ -1036,6 +1040,8 @@ def main():
                         }).background_gradient(subset=['spread', 'score'], cmap='RdYlGn'),
                         use_container_width=True
                     )
+            else:
+                st.info("Run analysis to discover optimal periods for indicators")
         
         with tab4:
             st.markdown("### 📋 Extracted Trading Rules")
