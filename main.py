@@ -521,11 +521,11 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
     # 1. Histograma con KDE
     hist_data = indicators[indicator_name].dropna()
     
-    # Agregar histograma
+    # Crear histograma básico sin normalización
     fig.add_trace(
         go.Histogram(
             x=hist_data,
-            nbinsx=70,
+            nbinsx=50,
             marker=dict(
                 color='rgba(102, 126, 234, 0.6)',
                 line=dict(color='rgba(255,255,255,0.2)', width=0.5)
@@ -533,13 +533,13 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
             name='Distribución',
             showlegend=False,
             hovertemplate='<b>Valor:</b> %{x:.2f}<br><b>Frecuencia:</b> %{y}<extra></extra>',
-            histnorm='probability density',  # Normalizar para que coincida con KDE
             yaxis='y'
         ),
-        row=1, col=1
+        row=1, col=1,
+        secondary_y=False
     )
     
-    # Calcular y agregar KDE (PDF curve)
+    # Calcular y agregar KDE (PDF curve) en eje secundario
     from scipy import stats as scipy_stats
     
     if len(hist_data) > 1:
@@ -551,37 +551,42 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
             x_range = np.linspace(hist_data.min(), hist_data.max(), 200)
             kde_values = kde(x_range)
             
-            # Agregar curva KDE
+            # Escalar KDE para que sea visible con el histograma
+            hist_counts, hist_bins = np.histogram(hist_data, bins=50)
+            kde_scale = max(hist_counts) / max(kde_values) * 0.8  # Escalar al 80% del máximo
+            
+            # Agregar curva KDE escalada
             fig.add_trace(
                 go.Scatter(
                     x=x_range,
-                    y=kde_values,
+                    y=kde_values * kde_scale,
                     mode='lines',
                     line=dict(color='#FFD93D', width=3),
                     name='PDF (KDE)',
                     showlegend=True,
-                    hovertemplate='<b>Valor:</b> %{x:.2f}<br><b>Densidad:</b> %{y:.4f}<extra></extra>',
+                    hovertemplate='<b>Valor:</b> %{x:.2f}<br><b>Densidad (escalada)</b><extra></extra>',
                     yaxis='y'
                 ),
-                row=1, col=1
+                row=1, col=1,
+                secondary_y=False
             )
             
             # Calcular percentiles importantes
-            percentiles = [5, 25, 50, 75, 95]
+            percentiles = [10, 25, 50, 75, 90]
             percentile_values = np.percentile(hist_data, percentiles)
             
             # Agregar líneas de percentiles
-            colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#4ECDC4', '#FF6B6B']
+            colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#4ECDC4', '#FF6B6B']
             for p, val, color in zip(percentiles, percentile_values, colors):
                 fig.add_vline(
                     x=val, 
                     line=dict(color=color, width=1, dash='dash'),
                     row=1, col=1,
-                    annotation_text=f'P{p}={val:.1f}',
+                    annotation_text=f'P{p}',
                     annotation_position="top" if p % 2 == 0 else "bottom"
                 )
             
-        except Exception:
+        except Exception as e:
             pass  # Si falla KDE, solo mostrar histograma
     
     mean_val = hist_data.mean()
@@ -591,17 +596,11 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
     fig.add_vline(x=mean_val, line=dict(color='#FF1744', width=2.5, dash='solid'),
                   row=1, col=1, annotation_text=f'μ={mean_val:.2f}', annotation_position="top")
     
-    # Área de desviación estándar
-    fig.add_vrect(x0=mean_val-std_val, x1=mean_val+std_val,
-                  fillcolor="rgba(102, 126, 234, 0.1)", layer="below",
-                  line_width=0, row=1, col=1,
-                  annotation_text=f"±1σ", annotation_position="top left")
-    
     # Agregar estadísticas en texto
     skewness = scipy_stats.skew(hist_data)
     kurtosis_val = scipy_stats.kurtosis(hist_data)
     
-    stats_text = f"<b>Estadísticas:</b><br>N: {len(hist_data):,}<br>μ: {mean_val:.2f}<br>σ: {std_val:.2f}<br>Skew: {skewness:.3f}<br>Kurt: {kurtosis_val:.3f}"
+    stats_text = f"<b>Stats:</b><br>N: {len(hist_data):,}<br>μ: {mean_val:.2f}<br>σ: {std_val:.2f}<br>Skew: {skewness:.3f}<br>Kurt: {kurtosis_val:.3f}"
     
     fig.add_annotation(
         x=0.02, y=0.98,
@@ -614,8 +613,7 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
         font=dict(size=10, color='white'),
         align="left",
         xanchor="left",
-        yanchor="top",
-        row=1, col=1
+        yanchor="top"
     )
     
     # 2. Retornos por percentil
@@ -1058,12 +1056,16 @@ def main():
             with col1:
                 start_date = st.date_input(
                     "Inicio",
-                    value=datetime(2020, 1, 1)
+                    value=datetime(2010, 1, 1),
+                    min_value=datetime(1990, 1, 1),  # Allow dates from 1990
+                    max_value=datetime.now()
                 )
             with col2:
                 end_date = st.date_input(
                     "Fin",
-                    value=datetime.now()
+                    value=datetime.now(),
+                    min_value=datetime(1990, 1, 1),
+                    max_value=datetime.now()
                 )
         
         with st.expander("📊 **PARÁMETROS**", expanded=True):
