@@ -4,4 +4,3 @@ numpy
 plotly
 matplotlib
 talib
-pandas_ta
