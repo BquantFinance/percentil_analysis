@@ -9,41 +9,208 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
-# Page configuration with dark theme
+# Configuración de la página con tema oscuro
 st.set_page_config(
-    page_title="Technical Indicators Percentile Performance Analyzer",
+    page_title="Analizador de Percentiles - Indicadores Técnicos",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom dark theme CSS
+# CSS personalizado para diseño ultra-estético
 st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    
     .stApp {
-        background-color: #0e1117;
+        background: linear-gradient(135deg, #0a0e27 0%, #151932 100%);
+        font-family: 'Inter', sans-serif;
     }
-    .metric-container {
-        background-color: #262730;
-        padding: 15px;
-        border-radius: 5px;
-        margin: 10px 0;
+    
+    /* Headers con gradiente */
+    h1 {
+        background: linear-gradient(90deg, #00D2FF 0%, #3A7BD5 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 700;
+        font-size: 2.5rem !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    h2 {
+        color: #E0E5FF;
+        font-weight: 600;
+    }
+    
+    h3 {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 600;
+    }
+    
+    /* Métricas estilizadas */
+    div[data-testid="metric-container"] {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        padding: 1rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.2);
+        border-color: rgba(99, 102, 241, 0.5);
+    }
+    
+    /* Botones con gradiente */
+    .stButton > button {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Selectbox y inputs estilizados */
+    .stSelectbox > div > div {
+        background: rgba(30, 34, 56, 0.8);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 10px;
+    }
+    
+    .stTextInput > div > div > input {
+        background: rgba(30, 34, 56, 0.8);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 10px;
+        color: #E0E5FF;
+    }
+    
+    /* Tabs con estilo moderno */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: rgba(30, 34, 56, 0.5);
+        border-radius: 12px;
+        padding: 4px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 45px;
+        padding: 0 24px;
+        background: transparent;
+        border-radius: 8px;
+        color: #8892B0;
+        transition: all 0.3s ease;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(99, 102, 241, 0.1);
+        color: #E0E5FF;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: white !important;
+    }
+    
+    /* Sidebar estilizada */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1e2238 0%, #252943 100%);
+        border-right: 1px solid rgba(99, 102, 241, 0.2);
+    }
+    
+    /* Progress bar */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #00D2FF 0%, #3A7BD5 100%);
+    }
+    
+    /* Expander con estilo */
+    .streamlit-expanderHeader {
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 10px;
+        color: #E0E5FF;
+    }
+    
+    /* Links estilizados */
+    a {
+        color: #00D2FF !important;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    
+    a:hover {
+        color: #3A7BD5 !important;
+        text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+    }
+    
+    /* Success/Error messages */
+    .stSuccess {
+        background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 10px;
+        padding: 1rem;
+    }
+    
+    .stError {
+        background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(185, 28, 28, 0.1) 100%);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 10px;
+        padding: 1rem;
+    }
+    
+    /* Dataframe styling */
+    .dataframe {
+        border: 1px solid rgba(99, 102, 241, 0.2) !important;
+        border-radius: 10px;
+        overflow: hidden;
     }
     </style>
     """, unsafe_allow_html=True)
+
+# Paleta de colores profesional
+COLORS = {
+    'primary': '#667eea',
+    'secondary': '#764ba2',
+    'accent': '#00D2FF',
+    'success': '#10b981',
+    'warning': '#f59e0b',
+    'danger': '#ef4444',
+    'dark': '#1e2238',
+    'light': '#E0E5FF',
+    'gradient_1': ['#667eea', '#764ba2'],
+    'gradient_2': ['#00D2FF', '#3A7BD5'],
+    'gradient_3': ['#f093fb', '#f5576c'],
+    'gradient_4': ['#4facfe', '#00f2fe'],
+    'gradient_5': ['#43e97b', '#38f9d7'],
+    'gradient_6': ['#fa709a', '#fee140'],
+    'gradient_7': ['#30cfd0', '#330867'],
+    'gradient_8': ['#a8edea', '#fed6e3']
+}
 
 @st.cache_data
 def calculate_selected_indicators_returns(ticker, start_date='2000-01-01', end_date=None, 
                                          indicators_to_calculate=None, quantiles=50, 
                                          return_days=5):
     """
-    Calculate indicators and returns - exact implementation from original
-    Calculates indicators for periods 1 to 100
+    Calcula indicadores y retornos - implementación exacta del original
+    Calcula indicadores para períodos 1 a 100
     """
     if end_date is None:
         end_date = datetime.now()
     
-    # Download data
+    # Descargar datos
     data = pd.DataFrame(yf.download(ticker, start=start_date, end=end_date, 
                                    progress=False, auto_adjust=True))
     
@@ -52,20 +219,20 @@ def calculate_selected_indicators_returns(ticker, start_date='2000-01-01', end_d
     
     indicators = pd.DataFrame(index=data.index)
     
-    # Calculate returns for specified days
+    # Calcular retornos para los días especificados
     for i in range(1, return_days + 1):
         data[f'returns_{i}_days'] = data['Close'].pct_change(i) * 100
     
     data = data.dropna()
     
-    # Convert to numpy arrays for talib
+    # Convertir a arrays numpy para talib
     high = data['High'].values
     low = data['Low'].values
     close = data['Close'].values
     volume = data['Volume'].values
     open_prices = data['Open'].values
     
-    # Define available indicators using talib
+    # Definir indicadores disponibles usando talib
     available_indicators = {
         'WILLR': lambda i: talib.WILLR(high, low, close, timeperiod=i),
         'CCI': lambda i: talib.CCI(high, low, close, timeperiod=i),
@@ -85,55 +252,38 @@ def calculate_selected_indicators_returns(ticker, start_date='2000-01-01', end_d
         'MINUS_DI': lambda i: talib.MINUS_DI(high, low, close, timeperiod=i),
         'APO': lambda i: talib.APO(close, fastperiod=max(i//2, 2), slowperiod=i),
         'HMA': lambda i: talib.WMA(2 * talib.WMA(close, timeperiod=i//2) - talib.WMA(close, timeperiod=i), timeperiod=int(np.sqrt(i))),
-        'KURTOSIS': lambda i: talib.VAR(close, timeperiod=i),  # Using VAR as proxy
         'MFI': lambda i: talib.MFI(high, low, close, volume, timeperiod=i),
         'OBV': lambda i: talib.OBV(close, volume),
         'NATR': lambda i: talib.NATR(high, low, close, timeperiod=i),
-        'TRANGE': lambda i: talib.TRANGE(high, low, close),
         'STDDEV': lambda i: talib.STDDEV(close, timeperiod=i),
         'TSF': lambda i: talib.TSF(close, timeperiod=i),
         'VAR': lambda i: talib.VAR(close, timeperiod=i),
         'LINEARREG': lambda i: talib.LINEARREG(close, timeperiod=i),
-        'LINEARREG_ANGLE': lambda i: talib.LINEARREG_ANGLE(close, timeperiod=i),
-        'LINEARREG_INTERCEPT': lambda i: talib.LINEARREG_INTERCEPT(close, timeperiod=i),
-        'CORREL': lambda i: talib.CORREL(high, low, timeperiod=i),
-        'BETA': lambda i: talib.BETA(high, low, timeperiod=i),
         'ROC': lambda i: talib.ROC(close, timeperiod=i),
         'ROCP': lambda i: talib.ROCP(close, timeperiod=i),
-        'ROCR': lambda i: talib.ROCR(close, timeperiod=i),
         'MOM': lambda i: talib.MOM(close, timeperiod=i),
         'BBANDS_UPPER': lambda i: talib.BBANDS(close, timeperiod=i)[0],
         'BBANDS_MIDDLE': lambda i: talib.BBANDS(close, timeperiod=i)[1],
         'BBANDS_LOWER': lambda i: talib.BBANDS(close, timeperiod=i)[2],
         'DEMA': lambda i: talib.DEMA(close, timeperiod=i),
         'TEMA': lambda i: talib.TEMA(close, timeperiod=i),
-        'TRIMA': lambda i: talib.TRIMA(close, timeperiod=i),
         'WMA': lambda i: talib.WMA(close, timeperiod=i),
-        'MIDPOINT': lambda i: talib.MIDPOINT(close, timeperiod=i),
-        'MIDPRICE': lambda i: talib.MIDPRICE(high, low, timeperiod=i),
         'CMO': lambda i: talib.CMO(close, timeperiod=i),
         'PPO': lambda i: talib.PPO(close, fastperiod=max(i//2, 2), slowperiod=i),
         'AROON_UP': lambda i: talib.AROON(high, low, timeperiod=i)[0],
         'AROON_DOWN': lambda i: talib.AROON(high, low, timeperiod=i)[1],
         'AROONOSC': lambda i: talib.AROONOSC(high, low, timeperiod=i),
-        'ULTOSC': lambda i: talib.ULTOSC(high, low, close, timeperiod1=max(i//3, 2), timeperiod2=max(i//2, 3), timeperiod3=i),
         'DX': lambda i: talib.DX(high, low, close, timeperiod=i),
-        'ADXR': lambda i: talib.ADXR(high, low, close, timeperiod=i),
         'TRIX': lambda i: talib.TRIX(close, timeperiod=i),
-        'BOP': lambda i: talib.BOP(open_prices, high, low, close),
-        'SAR': lambda i: talib.SAR(high, low, acceleration=0.02, maximum=0.2),
         'T3': lambda i: talib.T3(close, timeperiod=i, vfactor=0),
-        'HT_TRENDLINE': lambda i: talib.HT_TRENDLINE(close),
-        'HT_DCPERIOD': lambda i: talib.HT_DCPERIOD(close),
-        'HT_DCPHASE': lambda i: talib.HT_DCPHASE(close),
-        'HT_TRENDMODE': lambda i: talib.HT_TRENDMODE(close),
     }
     
     if indicators_to_calculate is None:
         indicators_to_calculate = list(available_indicators.keys())
     
-    # Calculate indicators for periods 1 to 100 (exact as original)
+    # Calcular indicadores para períodos 1 a 100 con barra de progreso elegante
     progress_bar = st.progress(0)
+    progress_text = st.empty()
     total_calculations = len(indicators_to_calculate) * 100
     current_calculation = 0
     
@@ -149,13 +299,15 @@ def calculate_selected_indicators_returns(ticker, start_date='2000-01-01', end_d
                 
                 current_calculation += 1
                 progress_bar.progress(current_calculation / total_calculations)
+                progress_text.text(f'⚡ Procesando: {indicator} - Período {i}/100')
     
     progress_bar.empty()
+    progress_text.empty()
     
     indicators = indicators.dropna()
     data_clean = data.drop(['Open', 'High', 'Low', 'Volume', 'Close'], axis=1, errors='ignore')
     
-    # Calculate returns data for each indicator - exact as original
+    # Calcular datos de retornos para cada indicador
     returns_data = {}
     for indicator_name in indicators.columns:
         deciles_column = f'{indicator_name}_Deciles'
@@ -178,323 +330,505 @@ def calculate_selected_indicators_returns(ticker, start_date='2000-01-01', end_d
 def plot_integrated_indicators_returns(indicators, returns_data, data, feature_name, 
                                       feature_length=None, return_days=None):
     """
-    Create the exact 4 plots as in the original implementation using Plotly
+    Crear los 4 gráficos con diseño ultra-estético usando Plotly
     """
     indicator_col = f'{feature_name}{feature_length}'
     
     if indicator_col not in indicators.columns:
-        st.error(f"Indicator {indicator_col} not found")
+        st.error(f"❌ Indicador {indicator_col} no encontrado")
         return None
     
     if indicator_col not in returns_data:
-        st.error(f"Returns data for {indicator_col} not found")
+        st.error(f"❌ Datos de retorno para {indicator_col} no encontrados")
         return None
     
-    # Create subplots - exact layout as original
+    # Crear subplots con diseño mejorado
     fig = make_subplots(
-        rows=4, cols=1,
+        rows=2, cols=2,
         subplot_titles=(
-            f'{feature_name}{feature_length}',
-            f'Average Returns ({return_days}-day) for {feature_name}{feature_length}',
-            f'Rolling Correlation(126) between {feature_name}{feature_length} and returns',
-            f'{feature_name}{feature_length} vs Returns ({return_days}-day)'
+            f'<b>{feature_name}{feature_length} - Distribución</b>',
+            f'<b>Retornos Promedio por Percentil ({return_days} días)</b>',
+            f'<b>Correlación Móvil (ventana: 126 días)</b>',
+            f'<b>Análisis de Dispersión - {feature_name}{feature_length}</b>'
         ),
-        row_heights=[0.25, 0.25, 0.25, 0.25],
-        vertical_spacing=0.12
+        row_heights=[0.5, 0.5],
+        column_widths=[0.5, 0.5],
+        horizontal_spacing=0.12,
+        vertical_spacing=0.15,
+        specs=[[{"type": "histogram"}, {"type": "bar"}],
+               [{"type": "scatter"}, {"type": "scatter"}]]
     )
     
-    # 1. Histogram - exact as original
+    # 1. HISTOGRAMA ESTÉTICO con gradiente
+    hist_data = indicators[indicator_col].dropna()
+    
+    # Crear bins más estéticos
+    counts, bins = np.histogram(hist_data, bins=70)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    
+    # Normalizar colores para gradiente
+    colors = [f'rgba({102 + i*2}, {126 - i}, {234 - i*2}, 0.8)' for i in range(len(counts))]
+    
     fig.add_trace(
-        go.Histogram(
-            x=indicators[indicator_col],
-            nbinsx=70,
-            marker_color='blue',
-            opacity=0.6,
-            name='Distribution',
-            showlegend=False
+        go.Bar(
+            x=bin_centers,
+            y=counts,
+            marker=dict(
+                color=counts,
+                colorscale='Viridis',
+                line=dict(color='rgba(255,255,255,0.3)', width=0.5)
+            ),
+            name='Distribución',
+            showlegend=False,
+            hovertemplate='<b>Valor:</b> %{x:.2f}<br><b>Frecuencia:</b> %{y}<extra></extra>'
         ),
         row=1, col=1
     )
     
-    # Add mean line
-    mean_val = indicators[indicator_col].mean()
+    # Línea de media con estilo
+    mean_val = hist_data.mean()
+    std_val = hist_data.std()
+    
     fig.add_vline(
         x=mean_val,
-        line_dash="dash",
-        line_color="red",
-        line_width=1.5,
+        line=dict(color='#FF6B6B', width=2, dash='dash'),
         row=1, col=1
     )
     
-    # Add annotation for mean
-    fig.add_annotation(
-        x=mean_val,
-        y=0,
-        text=f'{feature_name}{feature_length} Mean = {mean_val:.2f}',
-        showarrow=True,
-        arrowhead=2,
-        row=1, col=1,
-        yref="paper",
-        yshift=10
+    # Añadir área de desviación estándar
+    fig.add_vrect(
+        x0=mean_val - std_val,
+        x1=mean_val + std_val,
+        fillcolor="rgba(255, 107, 107, 0.1)",
+        layer="below",
+        line_width=0,
+        row=1, col=1
     )
     
-    # 2. Average Returns by Quantile - exact as original
+    # Anotación elegante
+    fig.add_annotation(
+        x=mean_val,
+        y=max(counts) * 1.05,
+        text=f'<b>μ = {mean_val:.2f}</b><br>σ = {std_val:.2f}',
+        showarrow=True,
+        arrowhead=2,
+        arrowsize=1,
+        arrowwidth=2,
+        arrowcolor="#FF6B6B",
+        ax=30,
+        ay=-30,
+        bgcolor="rgba(30, 34, 56, 0.9)",
+        bordercolor="#FF6B6B",
+        borderwidth=1,
+        font=dict(color='white', size=10),
+        row=1, col=1
+    )
+    
+    # 2. GRÁFICO DE BARRAS DE RETORNOS con gradiente
     returns_col = f'returns_{return_days}_days_mean'
     if returns_col in returns_data[indicator_col].columns:
+        returns_values = returns_data[indicator_col][returns_col]
+        x_labels = [f'Q{i+1}' for i in range(len(returns_values))]
+        
+        # Crear gradiente de colores basado en valores
+        norm_returns = (returns_values - returns_values.min()) / (returns_values.max() - returns_values.min() + 0.0001)
+        colors_bar = [f'rgba({int(30 + r*225)}, {int(100 - r*50)}, {int(100 + r*50)}, 0.8)' 
+                     for r in norm_returns]
+        
         fig.add_trace(
             go.Bar(
-                x=[str(idx) for idx in returns_data[indicator_col].index],
-                y=returns_data[indicator_col][returns_col],
-                marker_color='red',
-                opacity=0.5,
-                name='Avg Returns',
+                x=x_labels,
+                y=returns_values,
+                marker=dict(
+                    color=returns_values,
+                    colorscale=[
+                        [0, '#FF6B6B'],
+                        [0.5, '#FFD93D'],
+                        [1, '#6BCF7F']
+                    ],
+                    line=dict(color='rgba(255,255,255,0.3)', width=1),
+                    colorbar=dict(
+                        title="Retorno %",
+                        titleside="right",
+                        tickmode="linear",
+                        tick0=returns_values.min(),
+                        dtick=(returns_values.max() - returns_values.min()) / 5,
+                        len=0.4,
+                        y=0.75,
+                        yanchor="middle"
+                    )
+                ),
+                text=[f'{val:.2f}%' for val in returns_values],
+                textposition='outside',
+                textfont=dict(size=9, color='white'),
+                name='Retornos',
+                showlegend=False,
+                hovertemplate='<b>Percentil:</b> %{x}<br><b>Retorno:</b> %{y:.3f}%<extra></extra>'
+            ),
+            row=1, col=2
+        )
+        
+        # Línea de tendencia
+        x_numeric = list(range(len(returns_values)))
+        z = np.polyfit(x_numeric, returns_values, 2)
+        p = np.poly1d(z)
+        trend_line = p(x_numeric)
+        
+        fig.add_trace(
+            go.Scatter(
+                x=x_labels,
+                y=trend_line,
+                mode='lines',
+                line=dict(color='rgba(255, 255, 255, 0.5)', width=2, dash='dot'),
+                name='Tendencia',
                 showlegend=False
             ),
-            row=2, col=1
+            row=1, col=2
         )
     
-    # 3. Rolling Correlation - exact as original
+    # 3. CORRELACIÓN MÓVIL con área sombreada
     if f'returns_{return_days}_days' in data.columns:
-        # Calculate overall correlation
         overall_corr = data[f'returns_{return_days}_days'].corr(indicators[indicator_col])
-        
-        # Calculate rolling correlation with 126 window
         rolling_corr = data[f'returns_{return_days}_days'].rolling(126).corr(indicators[indicator_col]).dropna()
         
+        # Gráfico de área con gradiente
         fig.add_trace(
             go.Scatter(
                 x=rolling_corr.index,
                 y=rolling_corr.values,
                 mode='lines',
-                line=dict(color='yellow'),
-                name='Rolling Corr',
+                line=dict(color='#00D2FF', width=2),
+                fill='tonexty',
+                fillcolor='rgba(0, 210, 255, 0.1)',
+                name='Correlación Móvil',
+                showlegend=False,
+                hovertemplate='<b>Fecha:</b> %{x}<br><b>Correlación:</b> %{y:.3f}<extra></extra>'
+            ),
+            row=2, col=1
+        )
+        
+        # Añadir banda de confianza
+        fig.add_trace(
+            go.Scatter(
+                x=rolling_corr.index,
+                y=[0] * len(rolling_corr),
+                mode='lines',
+                line=dict(color='rgba(255,255,255,0.1)', width=1),
                 showlegend=False
             ),
-            row=3, col=1
+            row=2, col=1
         )
         
-        # Add overall correlation line
+        # Línea de correlación general
         fig.add_hline(
             y=overall_corr,
-            line_dash="dash",
-            line_color="red",
-            line_width=2,
-            row=3, col=1
+            line=dict(color='#FF6B6B', width=2, dash='dash'),
+            row=2, col=1
         )
         
-        # Add annotation for correlation
+        # Anotación estilizada
         fig.add_annotation(
-            x=0.98,
+            x=rolling_corr.index[-1],
             y=overall_corr,
-            text=f'Correlation = {overall_corr:.2f}',
-            showarrow=False,
-            xref="paper",
-            row=3, col=1,
-            bgcolor="rgba(255,0,0,0.2)",
-            font=dict(color="white")
+            text=f'<b>ρ = {overall_corr:.3f}</b>',
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="#FF6B6B",
+            ax=-50,
+            ay=0,
+            bgcolor="rgba(30, 34, 56, 0.9)",
+            bordercolor="#FF6B6B",
+            borderwidth=1,
+            font=dict(color='white', size=11),
+            row=2, col=1
         )
     
-    # 4. Scatter plot with Polynomial Fit - exact as original
+    # 4. SCATTER PLOT con hexbin effect
     if f'returns_{return_days}_days' in data.columns:
         valid_dates = data.index[data.index >= indicators[indicator_col].index[0]]
         x_data = indicators[indicator_col]
         y_data = data[f'returns_{return_days}_days'].loc[valid_dates]
         
-        # Remove NaN values
         mask = ~(x_data.isna() | y_data.isna())
         x_clean = x_data[mask]
         y_clean = y_data[mask]
         
         if len(x_clean) > 1:
-            # Scatter plot
+            # Scatter con gradiente de densidad
             fig.add_trace(
                 go.Scatter(
                     x=x_clean,
                     y=y_clean,
                     mode='markers',
-                    marker=dict(color='blue', size=3, opacity=0.6),
-                    name='Data Points',
-                    showlegend=False
+                    marker=dict(
+                        size=4,
+                        color=y_clean,
+                        colorscale='Plasma',
+                        opacity=0.6,
+                        line=dict(width=0),
+                        colorbar=dict(
+                            title="Retorno %",
+                            titleside="right",
+                            tickmode="linear",
+                            len=0.4,
+                            y=0.25,
+                            yanchor="middle"
+                        )
+                    ),
+                    name='Datos',
+                    showlegend=False,
+                    hovertemplate='<b>Indicador:</b> %{x:.2f}<br><b>Retorno:</b> %{y:.2f}%<extra></extra>'
                 ),
-                row=4, col=1
+                row=2, col=2
             )
             
-            # Add polynomial fit (degree 1 as in original)
+            # Ajuste polinómico con intervalo de confianza
             try:
-                poly_coefficients = np.polyfit(x_clean, y_clean, deg=1)
+                poly_coefficients = np.polyfit(x_clean, y_clean, deg=2)
                 poly_curve = np.polyval(poly_coefficients, x_clean)
                 
+                # Línea de ajuste principal
                 fig.add_trace(
                     go.Scatter(
                         x=x_clean,
                         y=poly_curve,
                         mode='lines',
-                        line=dict(color='red', width=2),
-                        name='Polynomial Fit',
-                        showlegend=True
+                        line=dict(color='#FFD93D', width=3),
+                        name='Ajuste Cuadrático',
+                        showlegend=True,
+                        hovertemplate='<b>Ajuste</b><extra></extra>'
                     ),
-                    row=4, col=1
+                    row=2, col=2
+                )
+                
+                # Intervalo de confianza
+                residuals = y_clean - poly_curve
+                std_residuals = np.std(residuals)
+                
+                fig.add_trace(
+                    go.Scatter(
+                        x=np.concatenate([x_clean, x_clean[::-1]]),
+                        y=np.concatenate([poly_curve + 1.96*std_residuals, 
+                                        (poly_curve - 1.96*std_residuals)[::-1]]),
+                        fill='toself',
+                        fillcolor='rgba(255, 217, 61, 0.1)',
+                        line=dict(color='rgba(255, 217, 61, 0)'),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ),
+                    row=2, col=2
                 )
             except:
                 pass
     
-    # Update layout - matching original style
+    # Actualizar diseño general
     fig.update_layout(
         template="plotly_dark",
-        height=1200,
-        showlegend=False,
-        title_text=f"Percentile Analysis: {feature_name}{feature_length}",
-        title_font_size=20,
-        hovermode='x unified'
+        height=900,
+        showlegend=True,
+        title={
+            'text': f"<b>📊 Análisis de Percentiles: {feature_name}{feature_length}</b>",
+            'font': {'size': 24, 'color': '#E0E5FF'},
+            'x': 0.5,
+            'xanchor': 'center'
+        },
+        hovermode='closest',
+        plot_bgcolor='rgba(30, 34, 56, 0.3)',
+        paper_bgcolor='rgba(14, 17, 39, 0.8)',
+        font=dict(family="Inter, sans-serif", color='#E0E5FF'),
+        legend=dict(
+            bgcolor='rgba(30, 34, 56, 0.8)',
+            bordercolor='rgba(99, 102, 241, 0.3)',
+            borderwidth=1,
+            font=dict(size=11)
+        )
     )
     
-    # Update axes labels - exact as original
-    fig.update_xaxes(title_text="Values", row=1, col=1)
-    fig.update_yaxes(title_text="Frequency", row=1, col=1)
+    # Actualizar ejes con estilo
+    for row in [1, 2]:
+        for col in [1, 2]:
+            fig.update_xaxes(
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor='rgba(99, 102, 241, 0.1)',
+                zeroline=True,
+                zerolinewidth=1,
+                zerolinecolor='rgba(99, 102, 241, 0.2)',
+                row=row, col=col
+            )
+            fig.update_yaxes(
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor='rgba(99, 102, 241, 0.1)',
+                zeroline=True,
+                zerolinewidth=1,
+                zerolinecolor='rgba(99, 102, 241, 0.2)',
+                row=row, col=col
+            )
     
-    fig.update_xaxes(title_text="Quantiles", tickangle=45, row=2, col=1)
-    fig.update_yaxes(title_text=f"Average Return ({return_days}-day)", row=2, col=1)
+    # Etiquetas específicas de ejes
+    fig.update_xaxes(title_text="<b>Valores del Indicador</b>", row=1, col=1)
+    fig.update_yaxes(title_text="<b>Frecuencia</b>", row=1, col=1)
     
-    fig.update_xaxes(title_text="Date", row=3, col=1)
-    fig.update_yaxes(title_text="Correlation", row=3, col=1)
+    fig.update_xaxes(title_text="<b>Percentiles</b>", tickangle=0, row=1, col=2)
+    fig.update_yaxes(title_text=f"<b>Retorno Promedio ({return_days}d) %</b>", row=1, col=2)
     
-    fig.update_xaxes(title_text=f"{feature_name}{feature_length}", row=4, col=1)
-    fig.update_yaxes(title_text=f"Returns ({return_days}-day)", row=4, col=1)
+    fig.update_xaxes(title_text="<b>Fecha</b>", row=2, col=1)
+    fig.update_yaxes(title_text="<b>Correlación</b>", row=2, col=1)
+    
+    fig.update_xaxes(title_text=f"<b>{feature_name}{feature_length}</b>", row=2, col=2)
+    fig.update_yaxes(title_text=f"<b>Retornos ({return_days}d) %</b>", row=2, col=2)
     
     return fig
 
 def main():
-    st.title("📊 Technical Indicators Percentile Performance Analyzer")
-    st.markdown("### Exact Implementation with TALib - 100 Periods Analysis")
-    st.markdown("---")
+    # Header con gradiente
+    st.markdown("""
+        <h1 style='text-align: center; margin-bottom: 0;'>
+            📊 Analizador de Performance por Percentiles
+        </h1>
+        <h3 style='text-align: center; margin-top: 0; margin-bottom: 2rem;'>
+            Indicadores Técnicos con Análisis Cuantitativo
+        </h3>
+    """, unsafe_allow_html=True)
     
-    # Sidebar configuration
+    # Créditos con estilo
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+            <div style='text-align: center; padding: 1rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%); border-radius: 15px; border: 1px solid rgba(99, 102, 241, 0.3); margin-bottom: 2rem;'>
+                <p style='margin: 0; color: #E0E5FF; font-size: 0.9rem;'>Desarrollado por</p>
+                <p style='margin: 0.5rem 0; font-size: 1.2rem;'>
+                    <a href='https://twitter.com/Gsnchez' style='text-decoration: none;'>
+                        <b>@Gsnchez</b>
+                    </a> | 
+                    <a href='https://bquantfinance.com' style='text-decoration: none;'>
+                        <b>bquantfinance.com</b>
+                    </a>
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # Configuración en la barra lateral
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.markdown("""
+            <div style='padding: 1rem; background: linear-gradient(135deg, rgba(0, 210, 255, 0.1) 0%, rgba(58, 123, 213, 0.1) 100%); border-radius: 10px; margin-bottom: 1rem;'>
+                <h2 style='margin: 0; text-align: center;'>⚙️ Configuración</h2>
+            </div>
+        """, unsafe_allow_html=True)
         
-        # Ticker selection
-        ticker = st.text_input("Stock Ticker", value="SPY", 
-                              help="Enter a valid stock ticker symbol")
+        # Ticker con estilo
+        ticker = st.text_input("🎯 **Símbolo Bursátil**", value="SPY", 
+                              help="Ingrese un símbolo bursátil válido")
         
-        # Date range
-        col1, col2 = st.columns(2)
-        with col1:
-            use_default_dates = st.checkbox("Use Default (2000-Now)", value=True)
+        # Fechas con contenedor estilizado
+        st.markdown("### 📅 **Rango de Fechas**")
+        use_default_dates = st.checkbox("Usar rango completo (2000-Hoy)", value=True)
         
         if use_default_dates:
             start_date = "2000-01-01"
             end_date = datetime.now()
         else:
+            col1, col2 = st.columns(2)
             with col1:
-                start_date = st.date_input("Start Date", 
-                                          value=datetime(2000, 1, 1))
+                start_date = st.date_input("Inicio", value=datetime(2000, 1, 1))
             with col2:
-                end_date = st.date_input("End Date", value=datetime.now())
-            
+                end_date = st.date_input("Fin", value=datetime.now())
             start_date = start_date.strftime('%Y-%m-%d')
         
-        # Return days configuration
-        st.subheader("📈 Return Configuration")
-        return_days = st.slider("Max Return Days", 
-                               min_value=1, max_value=30, value=5,
-                               help="Calculate returns up to this many days")
-        
-        # Quantiles configuration
-        quantiles = st.slider("Number of Quantiles", 
-                            min_value=5, max_value=100, value=50,
-                            help="Number of quantiles for percentile analysis")
-        
-        # Indicator selection
-        st.subheader("📊 Indicator Selection")
-        
-        # Grouped indicators
-        momentum_indicators = ['RSI', 'WILLR', 'CCI', 'STOCH_K', 'STOCH_D', 'CMO', 
-                              'MOM', 'ROC', 'ROCP', 'ROCR', 'TRIX', 'ULTOSC']
-        
-        trend_indicators = ['ADX', 'ADXR', 'DX', 'PLUS_DI', 'MINUS_DI', 'AROON_UP', 
-                          'AROON_DOWN', 'AROONOSC', 'SAR', 'APO', 'PPO', 'MACD']
-        
-        volatility_indicators = ['ATR', 'NATR', 'TRANGE', 'STDDEV', 'VAR', 
-                                'BBANDS_UPPER', 'BBANDS_MIDDLE', 'BBANDS_LOWER']
-        
-        moving_averages = ['SMA', 'EMA', 'WMA', 'DEMA', 'TEMA', 'TRIMA', 'KAMA', 
-                         'T3', 'HMA', 'MIDPOINT', 'MIDPRICE']
-        
-        statistics_indicators = ['LINEARREG', 'LINEARREG_ANGLE', 'LINEARREG_INTERCEPT', 
-                                'LINEARREG_SLOPE', 'TSF', 'BETA', 'CORREL', 'SLOPE', 'ZSCORE']
-        
-        other_indicators = ['DONCHIAN', 'BOP', 'HT_TRENDLINE', 'HT_DCPERIOD', 
-                          'HT_DCPHASE', 'HT_TRENDMODE', 'MFI', 'OBV']
-        
-        all_available = (momentum_indicators + trend_indicators + volatility_indicators + 
-                        moving_averages + statistics_indicators + other_indicators)
-        
-        # Selection method
-        selection_method = st.radio(
-            "Selection Method",
-            ["Quick Select", "By Category", "Custom"],
-            horizontal=True
+        # Configuración de retornos
+        st.markdown("### 📈 **Análisis de Retornos**")
+        return_days = st.slider(
+            "Días máximos de retorno",
+            min_value=1, max_value=30, value=5,
+            help="Calcular retornos hasta esta cantidad de días"
         )
         
-        if selection_method == "Quick Select":
+        # Cuantiles
+        quantiles = st.slider(
+            "Número de percentiles",
+            min_value=5, max_value=100, value=50,
+            help="División en percentiles para el análisis"
+        )
+        
+        # Selección de indicadores mejorada
+        st.markdown("### 📊 **Indicadores Técnicos**")
+        
+        # Categorías con íconos
+        momentum_indicators = ['RSI', 'WILLR', 'CCI', 'STOCH_K', 'STOCH_D', 'CMO', 'MOM', 'ROC', 'TRIX']
+        trend_indicators = ['ADX', 'DX', 'PLUS_DI', 'MINUS_DI', 'AROON_UP', 'AROON_DOWN', 'MACD']
+        volatility_indicators = ['ATR', 'NATR', 'STDDEV', 'BBANDS_UPPER', 'BBANDS_MIDDLE', 'BBANDS_LOWER']
+        moving_averages = ['SMA', 'EMA', 'WMA', 'DEMA', 'TEMA', 'KAMA', 'T3', 'HMA']
+        
+        selection_method = st.radio(
+            "Método de selección",
+            ["⚡ Rápido", "📁 Por Categoría", "🎨 Personalizado"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        
+        if selection_method == "⚡ Rápido":
             quick_option = st.selectbox(
-                "Choose preset",
-                ["Original Paper (RSI)", "Popular 5", "Momentum", "Trend", "All"]
+                "Configuración preestablecida",
+                ["🔬 Paper Original (RSI)", "🌟 Top 5 Populares", "💫 Momentum", "📈 Tendencia"]
             )
             
-            if quick_option == "Original Paper (RSI)":
+            if "Paper Original" in quick_option:
                 selected_indicators = ['RSI']
-            elif quick_option == "Popular 5":
+            elif "Top 5" in quick_option:
                 selected_indicators = ['RSI', 'MACD', 'BBANDS_UPPER', 'ATR', 'ADX']
-            elif quick_option == "Momentum":
+            elif "Momentum" in quick_option:
                 selected_indicators = momentum_indicators[:5]
-            elif quick_option == "Trend":
-                selected_indicators = trend_indicators[:5]
             else:
-                selected_indicators = all_available[:20]
+                selected_indicators = trend_indicators[:5]
                 
-        elif selection_method == "By Category":
+        elif selection_method == "📁 Por Categoría":
             categories = st.multiselect(
-                "Select Categories",
-                ["Momentum", "Trend", "Volatility", "Moving Averages", "Statistics", "Other"],
-                default=["Momentum"]
+                "Seleccionar categorías",
+                ["💫 Momentum", "📈 Tendencia", "📊 Volatilidad", "📉 Medias Móviles"],
+                default=["💫 Momentum"]
             )
             
             selected_indicators = []
-            if "Momentum" in categories:
+            if "💫 Momentum" in categories:
                 selected_indicators.extend(momentum_indicators)
-            if "Trend" in categories:
+            if "📈 Tendencia" in categories:
                 selected_indicators.extend(trend_indicators)
-            if "Volatility" in categories:
+            if "📊 Volatilidad" in categories:
                 selected_indicators.extend(volatility_indicators)
-            if "Moving Averages" in categories:
+            if "📉 Medias Móviles" in categories:
                 selected_indicators.extend(moving_averages)
-            if "Statistics" in categories:
-                selected_indicators.extend(statistics_indicators)
-            if "Other" in categories:
-                selected_indicators.extend(other_indicators)
-                
-        else:  # Custom
+        else:
+            all_indicators = momentum_indicators + trend_indicators + volatility_indicators + moving_averages
             selected_indicators = st.multiselect(
-                "Select indicators to analyze",
-                options=all_available,
+                "Seleccionar indicadores",
+                options=all_indicators,
                 default=['RSI']
             )
         
-        st.info(f"Selected {len(selected_indicators)} indicators")
-        st.caption("Each indicator will be calculated for periods 1-100")
+        # Información con estilo
+        st.markdown(f"""
+            <div style='padding: 0.75rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3);'>
+                <p style='margin: 0; color: #10b981; text-align: center;'>
+                    <b>{len(selected_indicators)}</b> indicadores × <b>100</b> períodos = <b>{len(selected_indicators) * 100:,}</b> cálculos
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
         
-        # Analysis button
-        analyze_button = st.button("🚀 Run Analysis", use_container_width=True, type="primary")
+        # Botón de análisis con estilo
+        st.markdown("<br>", unsafe_allow_html=True)
+        analyze_button = st.button("🚀 **EJECUTAR ANÁLISIS**", use_container_width=True, type="primary")
     
-    # Main content area
+    # Área principal
     if analyze_button:
         if not selected_indicators:
-            st.error("Please select at least one indicator")
+            st.error("⚠️ Por favor seleccione al menos un indicador")
             return
-            
-        with st.spinner(f"Calculating {len(selected_indicators)} indicators for 100 periods each..."):
-            # Calculate indicators and returns
+        
+        # Spinner personalizado
+        with st.spinner('🔄 Procesando análisis cuantitativo...'):
             returns_data, indicators, data = calculate_selected_indicators_returns(
                 ticker, 
                 start_date=start_date,
@@ -505,37 +839,38 @@ def main():
             )
         
         if returns_data is not None and indicators is not None and data is not None:
-            st.success(f"✅ Analysis complete! Calculated {len(indicators.columns)} indicator configurations")
+            # Success message con estilo
+            st.markdown(f"""
+                <div style='padding: 1rem; background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.3); margin-bottom: 2rem;'>
+                    <p style='margin: 0; color: #10b981; text-align: center; font-size: 1.1rem;'>
+                        ✅ <b>Análisis completado:</b> {len(indicators.columns)} configuraciones procesadas
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
             
-            # Create tabs
-            tab1, tab2, tab3, tab4 = st.tabs([
-                "📈 Percentile Analysis", 
-                "🎯 Best Performers", 
-                "📊 Comparison Matrix",
-                "📋 Data Overview"
+            # Tabs mejorados
+            tab1, tab2, tab3 = st.tabs([
+                "📈 **Análisis de Percentiles**",
+                "🏆 **Top Performers**",
+                "📊 **Dashboard Estadístico**"
             ])
             
             with tab1:
-                st.header("Percentile Analysis - Exact Original Implementation")
-                
-                # Get available indicators
+                # Selección de indicador para análisis
                 available_indicators = list(indicators.columns)
                 
                 if available_indicators:
                     col1, col2, col3 = st.columns(3)
                     
                     with col1:
-                        # Extract unique indicator names
                         indicator_names = list(set([col.rstrip('0123456789') for col in available_indicators]))
                         indicator_names.sort()
                         selected_indicator = st.selectbox(
-                            "Select Indicator",
-                            options=indicator_names,
-                            index=0
+                            "**Indicador**",
+                            options=indicator_names
                         )
                     
                     with col2:
-                        # Get available periods for selected indicator
                         available_periods = []
                         for col in available_indicators:
                             if col.startswith(selected_indicator):
@@ -544,29 +879,26 @@ def main():
                                     available_periods.append(period)
                                 except:
                                     pass
-                        
                         available_periods.sort()
                         
                         if available_periods:
-                            # Default to period 10 if available, otherwise first
                             default_idx = available_periods.index(10) if 10 in available_periods else 0
                             selected_period = st.selectbox(
-                                "Select Period",
+                                "**Período**",
                                 options=available_periods,
                                 index=default_idx
                             )
                         else:
                             selected_period = 10
-                            st.warning("No periods found")
                     
                     with col3:
                         selected_return_days = st.selectbox(
-                            "Return Days",
+                            "**Días de Retorno**",
                             options=list(range(1, return_days + 1)),
                             index=min(4, return_days-1) if return_days >= 5 else 0
                         )
                     
-                    # Create the 4 plots - exact as original
+                    # Generar gráficos estéticos
                     fig = plot_integrated_indicators_returns(
                         indicators, 
                         returns_data, 
@@ -578,193 +910,123 @@ def main():
                     
                     if fig:
                         st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Show quantile statistics
-                    with st.expander("📊 Quantile Statistics"):
-                        indicator_col = f'{selected_indicator}{selected_period}'
-                        if indicator_col in returns_data:
-                            st.dataframe(
-                                returns_data[indicator_col],
-                                use_container_width=True
-                            )
             
             with tab2:
-                st.header("🎯 Best Performing Indicators")
+                st.markdown("### 🏆 **Mejores Configuraciones por Spread**")
                 
-                # Find best configurations
+                # Análisis de mejores performers
                 best_configs = []
-                
-                for ind_col in indicators.columns[:500]:  # Limit to first 500 for performance
+                for ind_col in indicators.columns[:300]:
                     if ind_col in returns_data:
                         for ret_day in range(1, min(return_days + 1, 6)):
                             ret_col = f'returns_{ret_day}_days_mean'
                             if ret_col in returns_data[ind_col].columns:
-                                # Get spread between top and bottom quantile
                                 returns_df = returns_data[ind_col][ret_col]
                                 if len(returns_df) > 1:
                                     spread = returns_df.iloc[-1] - returns_df.iloc[0]
                                     best_configs.append({
-                                        'Indicator': ind_col,
-                                        'Return_Days': ret_day,
-                                        'Top_Quantile': returns_df.iloc[-1],
-                                        'Bottom_Quantile': returns_df.iloc[0],
+                                        'Indicador': ind_col,
+                                        'Días': ret_day,
+                                        'Q_Superior': returns_df.iloc[-1],
+                                        'Q_Inferior': returns_df.iloc[0],
                                         'Spread': spread
                                     })
                 
                 if best_configs:
-                    best_df = pd.DataFrame(best_configs)
-                    best_df = best_df.sort_values('Spread', ascending=False).head(30)
+                    best_df = pd.DataFrame(best_configs).sort_values('Spread', ascending=False).head(20)
                     
-                    # Display top performers
-                    st.subheader("Top 30 Configurations by Return Spread")
-                    
-                    # Format and display
-                    display_df = best_df.copy()
-                    display_df['Top_Quantile'] = display_df['Top_Quantile'].apply(lambda x: f"{x:.3f}%")
-                    display_df['Bottom_Quantile'] = display_df['Bottom_Quantile'].apply(lambda x: f"{x:.3f}%")
-                    display_df['Spread'] = display_df['Spread'].apply(lambda x: f"{x:.3f}%")
-                    
-                    st.dataframe(
-                        display_df,
-                        use_container_width=True,
-                        hide_index=True
-                    )
-                    
-                    # Plot spread distribution
-                    fig_spread = go.Figure()
-                    fig_spread.add_trace(go.Bar(
-                        x=best_df['Indicator'].head(20),
-                        y=best_df['Spread'].head(20),
-                        marker_color='green'
+                    # Gráfico de barras horizontal
+                    fig_top = go.Figure()
+                    fig_top.add_trace(go.Bar(
+                        y=best_df['Indicador'],
+                        x=best_df['Spread'],
+                        orientation='h',
+                        marker=dict(
+                            color=best_df['Spread'],
+                            colorscale='Viridis',
+                            line=dict(color='rgba(255,255,255,0.3)', width=1)
+                        ),
+                        text=[f'{s:.2f}%' for s in best_df['Spread']],
+                        textposition='outside',
+                        hovertemplate='<b>%{y}</b><br>Spread: %{x:.3f}%<extra></extra>'
                     ))
-                    fig_spread.update_layout(
+                    
+                    fig_top.update_layout(
                         template="plotly_dark",
-                        title="Top 20 Indicators by Return Spread",
-                        xaxis_title="Indicator",
-                        yaxis_title="Spread (%)",
-                        xaxis_tickangle=45,
-                        height=500
+                        height=600,
+                        title="<b>Top 20 Indicadores por Spread de Retorno</b>",
+                        xaxis_title="<b>Spread (%)</b>",
+                        yaxis_title="",
+                        plot_bgcolor='rgba(30, 34, 56, 0.3)',
+                        paper_bgcolor='rgba(14, 17, 39, 0.8)',
+                        font=dict(family="Inter, sans-serif", color='#E0E5FF')
                     )
-                    st.plotly_chart(fig_spread, use_container_width=True)
+                    
+                    st.plotly_chart(fig_top, use_container_width=True)
             
             with tab3:
-                st.header("📊 Indicator Comparison Matrix")
+                st.markdown("### 📊 **Resumen Estadístico**")
                 
-                # Select indicators to compare
-                comparison_indicators = st.multiselect(
-                    "Select indicators to compare (with specific periods)",
-                    options=available_indicators[:200],
-                    default=available_indicators[:min(5, len(available_indicators))]
-                )
-                
-                if comparison_indicators and len(comparison_indicators) > 1:
-                    # Create correlation matrix
-                    corr_matrix = indicators[comparison_indicators].corr()
-                    
-                    # Create heatmap
-                    fig_corr = go.Figure(data=go.Heatmap(
-                        z=corr_matrix.values,
-                        x=corr_matrix.columns,
-                        y=corr_matrix.columns,
-                        colorscale='RdBu',
-                        zmid=0,
-                        text=np.round(corr_matrix.values, 2),
-                        texttemplate='%{text}',
-                        textfont={"size": 10}
-                    ))
-                    
-                    fig_corr.update_layout(
-                        template="plotly_dark",
-                        title="Indicator Correlation Matrix",
-                        height=600,
-                        xaxis_tickangle=45
-                    )
-                    
-                    st.plotly_chart(fig_corr, use_container_width=True)
-                    
-                    # Performance comparison
-                    st.subheader("Performance Comparison")
-                    
-                    comparison_data = []
-                    for ind in comparison_indicators:
-                        if ind in returns_data:
-                            for ret_day in [1, 5, 10, 20][:min(4, return_days)]:
-                                ret_col = f'returns_{ret_day}_days_mean'
-                                if ret_col in returns_data[ind].columns:
-                                    returns_df = returns_data[ind][ret_col]
-                                    if len(returns_df) > 1:
-                                        comparison_data.append({
-                                            'Indicator': ind,
-                                            f'{ret_day}d_Spread': returns_df.iloc[-1] - returns_df.iloc[0]
-                                        })
-                    
-                    if comparison_data:
-                        # Aggregate by indicator
-                        comp_df = pd.DataFrame(comparison_data)
-                        comp_pivot = comp_df.pivot_table(index='Indicator', values=[col for col in comp_df.columns if 'd_Spread' in col])
-                        
-                        st.dataframe(
-                            comp_pivot.style.format("{:.3f}%").background_gradient(cmap='RdYlGn'),
-                            use_container_width=True
-                        )
-            
-            with tab4:
-                st.header("📋 Data Overview")
-                
-                col1, col2, col3 = st.columns(3)
+                # Métricas principales
+                col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
-                    st.metric("Ticker", ticker)
-                    st.metric("Total Days", f"{len(data):,}")
-                    st.metric("Date Range", f"{(end_date - pd.to_datetime(start_date)).days} days" if not use_default_dates else "Max Available")
-                
+                    st.metric("📅 Total Días", f"{len(data):,}")
                 with col2:
-                    st.metric("Indicators Calculated", f"{len(selected_indicators)}")
-                    st.metric("Total Configurations", f"{len(indicators.columns):,}")
-                    st.metric("Quantiles", quantiles)
-                
+                    st.metric("📈 Indicadores", f"{len(selected_indicators)}")
                 with col3:
-                    st.metric("Return Days", return_days)
-                    st.metric("Valid Data Points", f"{len(indicators):,}")
-                    
-                    # Calculate average return
+                    st.metric("⚙️ Configuraciones", f"{len(indicators.columns):,}")
+                with col4:
                     if f'returns_{return_days}_days' in data.columns:
-                        avg_return = data[f'returns_{return_days}_days'].mean()
-                        st.metric(f"Avg {return_days}-Day Return", f"{avg_return:.3f}%")
+                        avg_ret = data[f'returns_{return_days}_days'].mean()
+                        st.metric(f"📊 μ Retorno {return_days}d", f"{avg_ret:.2f}%")
                 
-                # Show sample of indicators data
-                st.subheader("Sample Indicator Values")
-                
-                sample_cols = indicators.columns[:10] if len(indicators.columns) > 10 else indicators.columns
-                st.dataframe(
-                    indicators[sample_cols].tail(20),
-                    use_container_width=True
-                )
-                
-                # Distribution of returns
-                st.subheader("Returns Distribution")
+                # Distribución de retornos
+                st.markdown("### 📉 **Distribución de Retornos**")
                 
                 fig_dist = go.Figure()
+                colors_dist = ['#667eea', '#764ba2', '#f093fb', '#4facfe']
                 
-                for i in [1, 5, 10, 20][:min(4, return_days)]:
+                for idx, i in enumerate([1, 5, 10, 20][:min(4, return_days)]):
                     if f'returns_{i}_days' in data.columns:
+                        returns_series = data[f'returns_{i}_days'].dropna()
+                        
                         fig_dist.add_trace(go.Histogram(
-                            x=data[f'returns_{i}_days'].dropna(),
-                            name=f'{i}-Day Returns',
+                            x=returns_series,
+                            name=f'{i} días',
                             opacity=0.7,
-                            nbinsx=50
+                            nbinsx=50,
+                            marker_color=colors_dist[idx % len(colors_dist)],
+                            hovertemplate=f'<b>{i} días</b><br>Retorno: %{{x:.2f}}%<br>Frecuencia: %{{y}}<extra></extra>'
                         ))
                 
                 fig_dist.update_layout(
                     template="plotly_dark",
-                    title="Distribution of Returns",
-                    xaxis_title="Return (%)",
-                    yaxis_title="Frequency",
+                    title="<b>Distribución de Retornos por Período</b>",
+                    xaxis_title="<b>Retorno (%)</b>",
+                    yaxis_title="<b>Frecuencia</b>",
                     barmode='overlay',
-                    height=400
+                    height=400,
+                    plot_bgcolor='rgba(30, 34, 56, 0.3)',
+                    paper_bgcolor='rgba(14, 17, 39, 0.8)',
+                    font=dict(family="Inter, sans-serif", color='#E0E5FF'),
+                    showlegend=True,
+                    legend=dict(
+                        bgcolor='rgba(30, 34, 56, 0.8)',
+                        bordercolor='rgba(99, 102, 241, 0.3)',
+                        borderwidth=1
+                    )
                 )
                 
                 st.plotly_chart(fig_dist, use_container_width=True)
+    
+    # Footer estilizado
+    st.markdown("---")
+    st.markdown("""
+        <div style='text-align: center; padding: 2rem 0; color: #8892B0;'>
+            <p>Desarrollado con 💜 por <a href='https://twitter.com/Gsnchez'><b>@Gsnchez</b></a> | <a href='https://bquantfinance.com'><b>bquantfinance.com</b></a></p>
+        </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
