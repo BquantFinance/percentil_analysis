@@ -7,8 +7,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
 import warnings
-from typing import Dict, List, Tuple, Optional, Callable
-import inspect
+from typing import Dict, List, Tuple, Optional
 
 warnings.filterwarnings('ignore')
 
@@ -96,24 +95,6 @@ st.markdown("""
         box-shadow: 0 8px 35px rgba(102, 126, 234, 0.5);
     }
     
-    .stButton > button:before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.2);
-        transform: translate(-50%, -50%);
-        transition: width 0.6s, height 0.6s;
-    }
-    
-    .stButton > button:active:before {
-        width: 300px;
-        height: 300px;
-    }
-    
     /* Selectbox mejorado */
     .stSelectbox > div > div {
         background: rgba(30, 34, 56, 0.9);
@@ -121,48 +102,6 @@ st.markdown("""
         border-radius: 12px;
         backdrop-filter: blur(10px);
         transition: all 0.3s ease;
-    }
-    
-    .stSelectbox > div > div:hover {
-        border-color: rgba(99, 102, 241, 0.6);
-        box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
-    }
-    
-    /* MultiSelect con estilo */
-    .stMultiSelect > div {
-        background: rgba(30, 34, 56, 0.9);
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        border-radius: 12px;
-        backdrop-filter: blur(10px);
-    }
-    
-    /* Tabs mejorados */
-    .stTabs [data-baseweb="tab-list"] {
-        background: rgba(30, 34, 56, 0.6);
-        border-radius: 16px;
-        padding: 4px;
-        gap: 4px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        height: 48px;
-        padding: 0 24px;
-        background: transparent;
-        border-radius: 12px;
-        color: #8892B0;
-        font-weight: 500;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .stTabs [data-baseweb="tab"]:hover {
-        background: rgba(99, 102, 241, 0.15);
-        color: #E0E5FF;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(168, 85, 247, 0.3) 100%);
-        color: white !important;
-        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
     }
     
     /* Sidebar con glassmorphism */
@@ -184,314 +123,277 @@ st.markdown("""
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
-    
-    /* Info boxes */
-    .stInfo {
-        background: linear-gradient(135deg, rgba(0, 210, 255, 0.1) 0%, rgba(58, 123, 213, 0.1) 100%);
-        border: 1px solid rgba(0, 210, 255, 0.3);
-        border-radius: 12px;
-        padding: 1rem;
-    }
-    
-    /* Success boxes */
-    .stSuccess {
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
-        border: 1px solid rgba(16, 185, 129, 0.3);
-        border-radius: 12px;
-        padding: 1rem;
-    }
-    
-    /* Slider mejorado */
-    .stSlider > div > div {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    /* Expander con estilo */
-    .streamlit-expanderHeader {
-        background: rgba(99, 102, 241, 0.1);
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        border-radius: 12px;
-        transition: all 0.3s ease;
-    }
-    
-    .streamlit-expanderHeader:hover {
-        background: rgba(99, 102, 241, 0.2);
-        border-color: rgba(99, 102, 241, 0.5);
-    }
-    
-    /* Links estilizados */
-    a {
-        color: #00D2FF !important;
-        text-decoration: none;
-        position: relative;
-        transition: all 0.3s ease;
-    }
-    
-    a:after {
-        content: '';
-        position: absolute;
-        width: 0;
-        height: 2px;
-        bottom: -2px;
-        left: 0;
-        background: linear-gradient(90deg, #00D2FF 0%, #3A7BD5 100%);
-        transition: width 0.3s ease;
-    }
-    
-    a:hover:after {
-        width: 100%;
-    }
-    
-    /* Radio buttons con estilo */
-    .stRadio > div {
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-    
-    .stRadio > div > label {
-        background: rgba(30, 34, 56, 0.6);
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-    
-    .stRadio > div > label:hover {
-        background: rgba(99, 102, 241, 0.15);
-        border-color: rgba(99, 102, 241, 0.5);
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# ===================== CLASE PARA MANEJO DE INDICADORES =====================
+# ===================== CLASE COMPACTA PARA MANEJO DE INDICADORES =====================
 class TechnicalIndicators:
-    """Manejador elegante de todos los indicadores de TALib"""
+    """Manejador elegante y compacto de todos los indicadores de TALib"""
     
-    @staticmethod
-    def get_all_categories() -> Dict[str, Dict[str, Callable]]:
-        """Retorna todos los indicadores organizados por categorías"""
+    # Configuración de indicadores: nombre -> (función, args_especiales)
+    INDICATOR_CONFIG = {
+        # Overlaps
+        'BBANDS': ('BBANDS', {'timeperiod': 'p', 'nbdevup': 2, 'nbdevdn': 2, 'matype': 0}),
+        'DEMA': ('DEMA', {'timeperiod': 'p'}),
+        'EMA': ('EMA', {'timeperiod': 'p'}),
+        'HT_TRENDLINE': ('HT_TRENDLINE', {}),
+        'KAMA': ('KAMA', {'timeperiod': 'p'}),
+        'MA': ('MA', {'timeperiod': 'p', 'matype': 0}),
+        'MAMA': ('MAMA', {'fastlimit': 0.5, 'slowlimit': 0.05}),
+        'MIDPOINT': ('MIDPOINT', {'timeperiod': 'p'}),
+        'MIDPRICE': ('MIDPRICE', {'timeperiod': 'p'}),
+        'SAR': ('SAR', {'acceleration': 0.02, 'maximum': 0.2}),
+        'SAREXT': ('SAREXT', {'startvalue': 0, 'offsetonreverse': 0, 'accelerationinitlong': 0.02,
+                              'accelerationlong': 0.02, 'accelerationmaxlong': 0.20,
+                              'accelerationinitshort': 0.02, 'accelerationshort': 0.02, 
+                              'accelerationmaxshort': 0.20}),
+        'SMA': ('SMA', {'timeperiod': 'p'}),
+        'T3': ('T3', {'timeperiod': 'p', 'vfactor': 0}),
+        'TEMA': ('TEMA', {'timeperiod': 'p'}),
+        'TRIMA': ('TRIMA', {'timeperiod': 'p'}),
+        'WMA': ('WMA', {'timeperiod': 'p'}),
         
-        return {
-            "📈 Overlaps (Superposiciones)": {
-                'BBANDS': lambda h, l, c, v, o, p: talib.BBANDS(c, timeperiod=p, nbdevup=2, nbdevdn=2, matype=0),
-                'DEMA': lambda h, l, c, v, o, p: talib.DEMA(c, timeperiod=p),
-                'EMA': lambda h, l, c, v, o, p: talib.EMA(c, timeperiod=p),
-                'HT_TRENDLINE': lambda h, l, c, v, o, p: talib.HT_TRENDLINE(c),
-                'KAMA': lambda h, l, c, v, o, p: talib.KAMA(c, timeperiod=p),
-                'MA': lambda h, l, c, v, o, p: talib.MA(c, timeperiod=p, matype=0),
-                'MAMA': lambda h, l, c, v, o, p: talib.MAMA(c, fastlimit=0.5, slowlimit=0.05),
-                'MIDPOINT': lambda h, l, c, v, o, p: talib.MIDPOINT(c, timeperiod=p),
-                'MIDPRICE': lambda h, l, c, v, o, p: talib.MIDPRICE(h, l, timeperiod=p),
-                'SAR': lambda h, l, c, v, o, p: talib.SAR(h, l, acceleration=0.02, maximum=0.2),
-                'SAREXT': lambda h, l, c, v, o, p: talib.SAREXT(h, l, startvalue=0, offsetonreverse=0, 
-                                                                accelerationinitlong=0.02, accelerationlong=0.02,
-                                                                accelerationmaxlong=0.20, accelerationinitshort=0.02,
-                                                                accelerationshort=0.02, accelerationmaxshort=0.20),
-                'SMA': lambda h, l, c, v, o, p: talib.SMA(c, timeperiod=p),
-                'T3': lambda h, l, c, v, o, p: talib.T3(c, timeperiod=p, vfactor=0),
-                'TEMA': lambda h, l, c, v, o, p: talib.TEMA(c, timeperiod=p),
-                'TRIMA': lambda h, l, c, v, o, p: talib.TRIMA(c, timeperiod=p),
-                'WMA': lambda h, l, c, v, o, p: talib.WMA(c, timeperiod=p),
-            },
+        # Momentum
+        'ADX': ('ADX', {'timeperiod': 'p'}),
+        'ADXR': ('ADXR', {'timeperiod': 'p'}),
+        'APO': ('APO', {'fastperiod': 'max(p//2, 2)', 'slowperiod': 'p', 'matype': 0}),
+        'AROON': ('AROON', {'timeperiod': 'p'}),
+        'AROONOSC': ('AROONOSC', {'timeperiod': 'p'}),
+        'BOP': ('BOP', {}),
+        'CCI': ('CCI', {'timeperiod': 'p'}),
+        'CMO': ('CMO', {'timeperiod': 'p'}),
+        'DX': ('DX', {'timeperiod': 'p'}),
+        'MACD': ('MACD', {'fastperiod': 'max(p//2, 2)', 'slowperiod': 'p', 'signalperiod': 9}),
+        'MACDEXT': ('MACDEXT', {'fastperiod': 'max(p//2, 2)', 'fastmatype': 0, 
+                                'slowperiod': 'p', 'slowmatype': 0, 
+                                'signalperiod': 9, 'signalmatype': 0}),
+        'MACDFIX': ('MACDFIX', {'signalperiod': 9}),
+        'MFI': ('MFI', {'timeperiod': 'p'}),
+        'MINUS_DI': ('MINUS_DI', {'timeperiod': 'p'}),
+        'MINUS_DM': ('MINUS_DM', {'timeperiod': 'p'}),
+        'MOM': ('MOM', {'timeperiod': 'p'}),
+        'PLUS_DI': ('PLUS_DI', {'timeperiod': 'p'}),
+        'PLUS_DM': ('PLUS_DM', {'timeperiod': 'p'}),
+        'PPO': ('PPO', {'fastperiod': 'max(p//2, 2)', 'slowperiod': 'p', 'matype': 0}),
+        'ROC': ('ROC', {'timeperiod': 'p'}),
+        'ROCP': ('ROCP', {'timeperiod': 'p'}),
+        'ROCR': ('ROCR', {'timeperiod': 'p'}),
+        'ROCR100': ('ROCR100', {'timeperiod': 'p'}),
+        'RSI': ('RSI', {'timeperiod': 'p'}),
+        'STOCH': ('STOCH', {'fastk_period': 'p', 'slowk_period': 3, 
+                           'slowk_matype': 0, 'slowd_period': 3, 'slowd_matype': 0}),
+        'STOCHF': ('STOCHF', {'fastk_period': 'p', 'fastd_period': 3, 'fastd_matype': 0}),
+        'STOCHRSI': ('STOCHRSI', {'timeperiod': 'p', 'fastk_period': 5, 
+                                  'fastd_period': 3, 'fastd_matype': 0}),
+        'TRIX': ('TRIX', {'timeperiod': 'p'}),
+        'ULTOSC': ('ULTOSC', {'timeperiod1': 'max(p//3, 2)', 
+                              'timeperiod2': 'max(p//2, 3)', 'timeperiod3': 'p'}),
+        'WILLR': ('WILLR', {'timeperiod': 'p'}),
+        
+        # Volume
+        'AD': ('AD', {}),
+        'ADOSC': ('ADOSC', {'fastperiod': 'max(p//3, 2)', 'slowperiod': 'p'}),
+        'OBV': ('OBV', {}),
+        
+        # Volatility
+        'ATR': ('ATR', {'timeperiod': 'p'}),
+        'NATR': ('NATR', {'timeperiod': 'p'}),
+        'TRANGE': ('TRANGE', {}),
+        
+        # Cycles
+        'HT_DCPERIOD': ('HT_DCPERIOD', {}),
+        'HT_DCPHASE': ('HT_DCPHASE', {}),
+        'HT_PHASOR': ('HT_PHASOR', {}),
+        'HT_SINE': ('HT_SINE', {}),
+        'HT_TRENDMODE': ('HT_TRENDMODE', {}),
+        
+        # Statistics
+        'BETA': ('BETA', {'timeperiod': 'p'}),
+        'CORREL': ('CORREL', {'timeperiod': 'p'}),
+        'LINEARREG': ('LINEARREG', {'timeperiod': 'p'}),
+        'LINEARREG_ANGLE': ('LINEARREG_ANGLE', {'timeperiod': 'p'}),
+        'LINEARREG_INTERCEPT': ('LINEARREG_INTERCEPT', {'timeperiod': 'p'}),
+        'LINEARREG_SLOPE': ('LINEARREG_SLOPE', {'timeperiod': 'p'}),
+        'STDDEV': ('STDDEV', {'timeperiod': 'p', 'nbdev': 1}),
+        'TSF': ('TSF', {'timeperiod': 'p'}),
+        'VAR': ('VAR', {'timeperiod': 'p', 'nbdev': 1}),
+        
+        # Math
+        'ACOS': ('ACOS', {}),
+        'ASIN': ('ASIN', {}),
+        'ATAN': ('ATAN', {}),
+        'CEIL': ('CEIL', {}),
+        'COS': ('COS', {}),
+        'COSH': ('COSH', {}),
+        'EXP': ('EXP', {}),
+        'FLOOR': ('FLOOR', {}),
+        'LN': ('LN', {}),
+        'LOG10': ('LOG10', {}),
+        'SIN': ('SIN', {}),
+        'SINH': ('SINH', {}),
+        'SQRT': ('SQRT', {}),
+        'TAN': ('TAN', {}),
+        'TANH': ('TANH', {}),
+        
+        # Price Transform
+        'AVGPRICE': ('AVGPRICE', {}),
+        'MEDPRICE': ('MEDPRICE', {}),
+        'TYPPRICE': ('TYPPRICE', {}),
+        'WCLPRICE': ('WCLPRICE', {}),
+    }
+    
+    # Categorías de indicadores
+    CATEGORIES = {
+        "📈 Overlaps": ['BBANDS', 'DEMA', 'EMA', 'HT_TRENDLINE', 'KAMA', 'MA', 
+                       'MAMA', 'MIDPOINT', 'MIDPRICE', 'SAR', 'SAREXT', 
+                       'SMA', 'T3', 'TEMA', 'TRIMA', 'WMA'],
+        "💫 Momentum": ['ADX', 'ADXR', 'APO', 'AROON', 'AROONOSC', 'BOP', 
+                       'CCI', 'CMO', 'DX', 'MACD', 'MACDEXT', 'MACDFIX', 
+                       'MFI', 'MINUS_DI', 'MINUS_DM', 'MOM', 'PLUS_DI', 
+                       'PLUS_DM', 'PPO', 'ROC', 'ROCP', 'ROCR', 'ROCR100', 
+                       'RSI', 'STOCH', 'STOCHF', 'STOCHRSI', 'TRIX', 
+                       'ULTOSC', 'WILLR'],
+        "📊 Volumen": ['AD', 'ADOSC', 'OBV'],
+        "📉 Volatilidad": ['ATR', 'NATR', 'TRANGE'],
+        "🎯 Ciclos": ['HT_DCPERIOD', 'HT_DCPHASE', 'HT_PHASOR', 'HT_SINE', 'HT_TRENDMODE'],
+        "📐 Estadísticas": ['BETA', 'CORREL', 'LINEARREG', 'LINEARREG_ANGLE', 
+                           'LINEARREG_INTERCEPT', 'LINEARREG_SLOPE', 'STDDEV', 'TSF', 'VAR'],
+        "🔢 Matemáticas": ['ACOS', 'ASIN', 'ATAN', 'CEIL', 'COS', 'COSH', 
+                          'EXP', 'FLOOR', 'LN', 'LOG10', 'SIN', 'SINH', 
+                          'SQRT', 'TAN', 'TANH'],
+        "💹 Transformación de Precios": ['AVGPRICE', 'MEDPRICE', 'TYPPRICE', 'WCLPRICE'],
+    }
+    
+    # Indicadores de patrones de velas (generados dinámicamente)
+    CANDLE_PATTERNS = [name for name in dir(talib) if name.startswith('CDL')]
+    
+    # Mapeo de qué datos necesita cada función
+    DATA_REQUIREMENTS = {
+        'ohlc': ['o', 'h', 'l', 'c'],
+        'ohlcv': ['o', 'h', 'l', 'c', 'v'],
+        'hlc': ['h', 'l', 'c'],
+        'hlcv': ['h', 'l', 'c', 'v'],
+        'hl': ['h', 'l'],
+        'c': ['c'],
+        'cv': ['c', 'v'],
+    }
+    
+    @classmethod
+    def _get_indicator_inputs(cls, func_name):
+        """Detecta automáticamente qué inputs necesita una función"""
+        # Detectar por nombre o documentación
+        if func_name.startswith('CDL'):
+            return 'ohlc'
+        elif func_name in ['AD', 'ADOSC']:
+            return 'hlcv'
+        elif func_name in ['OBV']:
+            return 'cv'
+        elif func_name in ['AVGPRICE']:
+            return 'ohlc'
+        elif func_name in ['MEDPRICE', 'MIDPRICE']:
+            return 'hl'
+        elif func_name in ['TYPPRICE', 'WCLPRICE', 'ATR', 'NATR', 'ADX', 'ADXR', 
+                           'CCI', 'DX', 'MINUS_DI', 'MINUS_DM', 'PLUS_DI', 'PLUS_DM']:
+            return 'hlc'
+        elif func_name == 'MFI':
+            return 'hlcv'
+        elif func_name in ['BOP']:
+            return 'ohlc'
+        elif func_name in ['SAR', 'SAREXT']:
+            return 'hl'
+        elif func_name in ['TRANGE']:
+            return 'hlc'
+        elif func_name in ['STOCH', 'STOCHF', 'WILLR']:
+            return 'hlc'
+        elif func_name in ['BETA', 'CORREL']:
+            return 'hl'  # Usa high y low como dos series de precios
+        else:
+            return 'c'  # Por defecto, solo close
+    
+    @classmethod
+    def calculate_indicator(cls, indicator_name, high, low, close, volume, open_prices, period):
+        """Calcula un indicador de forma dinámica"""
+        try:
+            # Verificar si es un patrón de velas
+            if indicator_name.startswith('CDL'):
+                func = getattr(talib, indicator_name)
+                return func(open_prices, high, low, close)
             
-            "💫 Momentum": {
-                'ADX': lambda h, l, c, v, o, p: talib.ADX(h, l, c, timeperiod=p),
-                'ADXR': lambda h, l, c, v, o, p: talib.ADXR(h, l, c, timeperiod=p),
-                'APO': lambda h, l, c, v, o, p: talib.APO(c, fastperiod=max(p//2, 2), slowperiod=p, matype=0),
-                'AROON': lambda h, l, c, v, o, p: talib.AROON(h, l, timeperiod=p),
-                'AROONOSC': lambda h, l, c, v, o, p: talib.AROONOSC(h, l, timeperiod=p),
-                'BOP': lambda h, l, c, v, o, p: talib.BOP(o, h, l, c),
-                'CCI': lambda h, l, c, v, o, p: talib.CCI(h, l, c, timeperiod=p),
-                'CMO': lambda h, l, c, v, o, p: talib.CMO(c, timeperiod=p),
-                'DX': lambda h, l, c, v, o, p: talib.DX(h, l, c, timeperiod=p),
-                'MACD': lambda h, l, c, v, o, p: talib.MACD(c, fastperiod=max(p//2, 2), slowperiod=p, signalperiod=9),
-                'MACDEXT': lambda h, l, c, v, o, p: talib.MACDEXT(c, fastperiod=max(p//2, 2), fastmatype=0, 
-                                                                  slowperiod=p, slowmatype=0, signalperiod=9, signalmatype=0),
-                'MACDFIX': lambda h, l, c, v, o, p: talib.MACDFIX(c, signalperiod=9),
-                'MFI': lambda h, l, c, v, o, p: talib.MFI(h, l, c, v, timeperiod=p),
-                'MINUS_DI': lambda h, l, c, v, o, p: talib.MINUS_DI(h, l, c, timeperiod=p),
-                'MINUS_DM': lambda h, l, c, v, o, p: talib.MINUS_DM(h, l, timeperiod=p),
-                'MOM': lambda h, l, c, v, o, p: talib.MOM(c, timeperiod=p),
-                'PLUS_DI': lambda h, l, c, v, o, p: talib.PLUS_DI(h, l, c, timeperiod=p),
-                'PLUS_DM': lambda h, l, c, v, o, p: talib.PLUS_DM(h, l, timeperiod=p),
-                'PPO': lambda h, l, c, v, o, p: talib.PPO(c, fastperiod=max(p//2, 2), slowperiod=p, matype=0),
-                'ROC': lambda h, l, c, v, o, p: talib.ROC(c, timeperiod=p),
-                'ROCP': lambda h, l, c, v, o, p: talib.ROCP(c, timeperiod=p),
-                'ROCR': lambda h, l, c, v, o, p: talib.ROCR(c, timeperiod=p),
-                'ROCR100': lambda h, l, c, v, o, p: talib.ROCR100(c, timeperiod=p),
-                'RSI': lambda h, l, c, v, o, p: talib.RSI(c, timeperiod=p),
-                'STOCH': lambda h, l, c, v, o, p: talib.STOCH(h, l, c, fastk_period=p, slowk_period=3, 
-                                                              slowk_matype=0, slowd_period=3, slowd_matype=0),
-                'STOCHF': lambda h, l, c, v, o, p: talib.STOCHF(h, l, c, fastk_period=p, fastd_period=3, fastd_matype=0),
-                'STOCHRSI': lambda h, l, c, v, o, p: talib.STOCHRSI(c, timeperiod=p, fastk_period=5, 
-                                                                    fastd_period=3, fastd_matype=0),
-                'TRIX': lambda h, l, c, v, o, p: talib.TRIX(c, timeperiod=p),
-                'ULTOSC': lambda h, l, c, v, o, p: talib.ULTOSC(h, l, c, timeperiod1=max(p//3, 2), 
-                                                                timeperiod2=max(p//2, 3), timeperiod3=p),
-                'WILLR': lambda h, l, c, v, o, p: talib.WILLR(h, l, c, timeperiod=p),
-            },
+            # Obtener configuración del indicador
+            if indicator_name not in cls.INDICATOR_CONFIG:
+                # Intentar llamar directamente si no está configurado
+                if hasattr(talib, indicator_name):
+                    func = getattr(talib, indicator_name)
+                    return func(close)
+                return None
             
-            "📊 Volumen": {
-                'AD': lambda h, l, c, v, o, p: talib.AD(h, l, c, v),
-                'ADOSC': lambda h, l, c, v, o, p: talib.ADOSC(h, l, c, v, fastperiod=max(p//3, 2), slowperiod=p),
-                'OBV': lambda h, l, c, v, o, p: talib.OBV(c, v),
-            },
+            func_name, params = cls.INDICATOR_CONFIG[indicator_name]
+            func = getattr(talib, func_name)
             
-            "📉 Volatilidad": {
-                'ATR': lambda h, l, c, v, o, p: talib.ATR(h, l, c, timeperiod=p),
-                'NATR': lambda h, l, c, v, o, p: talib.NATR(h, l, c, timeperiod=p),
-                'TRANGE': lambda h, l, c, v, o, p: talib.TRANGE(h, l, c),
-            },
+            # Preparar los argumentos según los inputs requeridos
+            data_type = cls._get_indicator_inputs(func_name)
             
-            "🎯 Ciclos": {
-                'HT_DCPERIOD': lambda h, l, c, v, o, p: talib.HT_DCPERIOD(c),
-                'HT_DCPHASE': lambda h, l, c, v, o, p: talib.HT_DCPHASE(c),
-                'HT_PHASOR': lambda h, l, c, v, o, p: talib.HT_PHASOR(c),
-                'HT_SINE': lambda h, l, c, v, o, p: talib.HT_SINE(c),
-                'HT_TRENDMODE': lambda h, l, c, v, o, p: talib.HT_TRENDMODE(c),
-            },
-            
-            "📐 Estadísticas": {
-                'BETA': lambda h, l, c, v, o, p: talib.BETA(h, l, timeperiod=p),
-                'CORREL': lambda h, l, c, v, o, p: talib.CORREL(h, l, timeperiod=p),
-                'LINEARREG': lambda h, l, c, v, o, p: talib.LINEARREG(c, timeperiod=p),
-                'LINEARREG_ANGLE': lambda h, l, c, v, o, p: talib.LINEARREG_ANGLE(c, timeperiod=p),
-                'LINEARREG_INTERCEPT': lambda h, l, c, v, o, p: talib.LINEARREG_INTERCEPT(c, timeperiod=p),
-                'LINEARREG_SLOPE': lambda h, l, c, v, o, p: talib.LINEARREG_SLOPE(c, timeperiod=p),
-                'STDDEV': lambda h, l, c, v, o, p: talib.STDDEV(c, timeperiod=p, nbdev=1),
-                'TSF': lambda h, l, c, v, o, p: talib.TSF(c, timeperiod=p),
-                'VAR': lambda h, l, c, v, o, p: talib.VAR(c, timeperiod=p, nbdev=1),
-            },
-            
-            "🔢 Matemáticas": {
-                'ACOS': lambda h, l, c, v, o, p: talib.ACOS(c),
-                'ASIN': lambda h, l, c, v, o, p: talib.ASIN(c),
-                'ATAN': lambda h, l, c, v, o, p: talib.ATAN(c),
-                'CEIL': lambda h, l, c, v, o, p: talib.CEIL(c),
-                'COS': lambda h, l, c, v, o, p: talib.COS(c),
-                'COSH': lambda h, l, c, v, o, p: talib.COSH(c),
-                'EXP': lambda h, l, c, v, o, p: talib.EXP(c),
-                'FLOOR': lambda h, l, c, v, o, p: talib.FLOOR(c),
-                'LN': lambda h, l, c, v, o, p: talib.LN(c),
-                'LOG10': lambda h, l, c, v, o, p: talib.LOG10(c),
-                'SIN': lambda h, l, c, v, o, p: talib.SIN(c),
-                'SINH': lambda h, l, c, v, o, p: talib.SINH(c),
-                'SQRT': lambda h, l, c, v, o, p: talib.SQRT(c),
-                'TAN': lambda h, l, c, v, o, p: talib.TAN(c),
-                'TANH': lambda h, l, c, v, o, p: talib.TANH(c),
-            },
-            
-            "💹 Transformación de Precios": {
-                'AVGPRICE': lambda h, l, c, v, o, p: talib.AVGPRICE(o, h, l, c),
-                'MEDPRICE': lambda h, l, c, v, o, p: talib.MEDPRICE(h, l),
-                'TYPPRICE': lambda h, l, c, v, o, p: talib.TYPPRICE(h, l, c),
-                'WCLPRICE': lambda h, l, c, v, o, p: talib.WCLPRICE(h, l, c),
-            },
-            
-            "🕯️ Patrones de Velas": {
-                'CDL2CROWS': lambda h, l, c, v, o, p: talib.CDL2CROWS(o, h, l, c),
-                'CDL3BLACKCROWS': lambda h, l, c, v, o, p: talib.CDL3BLACKCROWS(o, h, l, c),
-                'CDL3INSIDE': lambda h, l, c, v, o, p: talib.CDL3INSIDE(o, h, l, c),
-                'CDL3LINESTRIKE': lambda h, l, c, v, o, p: talib.CDL3LINESTRIKE(o, h, l, c),
-                'CDL3OUTSIDE': lambda h, l, c, v, o, p: talib.CDL3OUTSIDE(o, h, l, c),
-                'CDL3STARSINSOUTH': lambda h, l, c, v, o, p: talib.CDL3STARSINSOUTH(o, h, l, c),
-                'CDL3WHITESOLDIERS': lambda h, l, c, v, o, p: talib.CDL3WHITESOLDIERS(o, h, l, c),
-                'CDLABANDONEDBABY': lambda h, l, c, v, o, p: talib.CDLABANDONEDBABY(o, h, l, c, penetration=0),
-                'CDLADVANCEBLOCK': lambda h, l, c, v, o, p: talib.CDLADVANCEBLOCK(o, h, l, c),
-                'CDLBELTHOLD': lambda h, l, c, v, o, p: talib.CDLBELTHOLD(o, h, l, c),
-                'CDLBREAKAWAY': lambda h, l, c, v, o, p: talib.CDLBREAKAWAY(o, h, l, c),
-                'CDLCLOSINGMARUBOZU': lambda h, l, c, v, o, p: talib.CDLCLOSINGMARUBOZU(o, h, l, c),
-                'CDLCONCEALBABYSWALL': lambda h, l, c, v, o, p: talib.CDLCONCEALBABYSWALL(o, h, l, c),
-                'CDLCOUNTERATTACK': lambda h, l, c, v, o, p: talib.CDLCOUNTERATTACK(o, h, l, c),
-                'CDLDARKCLOUDCOVER': lambda h, l, c, v, o, p: talib.CDLDARKCLOUDCOVER(o, h, l, c, penetration=0),
-                'CDLDOJI': lambda h, l, c, v, o, p: talib.CDLDOJI(o, h, l, c),
-                'CDLDOJISTAR': lambda h, l, c, v, o, p: talib.CDLDOJISTAR(o, h, l, c),
-                'CDLDRAGONFLYDOJI': lambda h, l, c, v, o, p: talib.CDLDRAGONFLYDOJI(o, h, l, c),
-                'CDLENGULFING': lambda h, l, c, v, o, p: talib.CDLENGULFING(o, h, l, c),
-                'CDLEVENINGDOJISTAR': lambda h, l, c, v, o, p: talib.CDLEVENINGDOJISTAR(o, h, l, c, penetration=0),
-                'CDLEVENINGSTAR': lambda h, l, c, v, o, p: talib.CDLEVENINGSTAR(o, h, l, c, penetration=0),
-                'CDLGAPSIDESIDEWHITE': lambda h, l, c, v, o, p: talib.CDLGAPSIDESIDEWHITE(o, h, l, c),
-                'CDLGRAVESTONEDOJI': lambda h, l, c, v, o, p: talib.CDLGRAVESTONEDOJI(o, h, l, c),
-                'CDLHAMMER': lambda h, l, c, v, o, p: talib.CDLHAMMER(o, h, l, c),
-                'CDLHANGINGMAN': lambda h, l, c, v, o, p: talib.CDLHANGINGMAN(o, h, l, c),
-                'CDLHARAMI': lambda h, l, c, v, o, p: talib.CDLHARAMI(o, h, l, c),
-                'CDLHARAMICROSS': lambda h, l, c, v, o, p: talib.CDLHARAMICROSS(o, h, l, c),
-                'CDLHIGHWAVE': lambda h, l, c, v, o, p: talib.CDLHIGHWAVE(o, h, l, c),
-                'CDLHIKKAKE': lambda h, l, c, v, o, p: talib.CDLHIKKAKE(o, h, l, c),
-                'CDLHIKKAKEMOD': lambda h, l, c, v, o, p: talib.CDLHIKKAKEMOD(o, h, l, c),
-                'CDLHOMINGPIGEON': lambda h, l, c, v, o, p: talib.CDLHOMINGPIGEON(o, h, l, c),
-                'CDLIDENTICAL3CROWS': lambda h, l, c, v, o, p: talib.CDLIDENTICAL3CROWS(o, h, l, c),
-                'CDLINNECK': lambda h, l, c, v, o, p: talib.CDLINNECK(o, h, l, c),
-                'CDLINVERTEDHAMMER': lambda h, l, c, v, o, p: talib.CDLINVERTEDHAMMER(o, h, l, c),
-                'CDLKICKING': lambda h, l, c, v, o, p: talib.CDLKICKING(o, h, l, c),
-                'CDLKICKINGBYLENGTH': lambda h, l, c, v, o, p: talib.CDLKICKINGBYLENGTH(o, h, l, c),
-                'CDLLADDERBOTTOM': lambda h, l, c, v, o, p: talib.CDLLADDERBOTTOM(o, h, l, c),
-                'CDLLONGLEGGEDDOJI': lambda h, l, c, v, o, p: talib.CDLLONGLEGGEDDOJI(o, h, l, c),
-                'CDLLONGLINE': lambda h, l, c, v, o, p: talib.CDLLONGLINE(o, h, l, c),
-                'CDLMARUBOZU': lambda h, l, c, v, o, p: talib.CDLMARUBOZU(o, h, l, c),
-                'CDLMATCHINGLOW': lambda h, l, c, v, o, p: talib.CDLMATCHINGLOW(o, h, l, c),
-                'CDLMATHOLD': lambda h, l, c, v, o, p: talib.CDLMATHOLD(o, h, l, c, penetration=0),
-                'CDLMORNINGDOJISTAR': lambda h, l, c, v, o, p: talib.CDLMORNINGDOJISTAR(o, h, l, c, penetration=0),
-                'CDLMORNINGSTAR': lambda h, l, c, v, o, p: talib.CDLMORNINGSTAR(o, h, l, c, penetration=0),
-                'CDLONNECK': lambda h, l, c, v, o, p: talib.CDLONNECK(o, h, l, c),
-                'CDLPIERCING': lambda h, l, c, v, o, p: talib.CDLPIERCING(o, h, l, c),
-                'CDLRICKSHAWMAN': lambda h, l, c, v, o, p: talib.CDLRICKSHAWMAN(o, h, l, c),
-                'CDLRISEFALL3METHODS': lambda h, l, c, v, o, p: talib.CDLRISEFALL3METHODS(o, h, l, c),
-                'CDLSEPARATINGLINES': lambda h, l, c, v, o, p: talib.CDLSEPARATINGLINES(o, h, l, c),
-                'CDLSHOOTINGSTAR': lambda h, l, c, v, o, p: talib.CDLSHOOTINGSTAR(o, h, l, c),
-                'CDLSHORTLINE': lambda h, l, c, v, o, p: talib.CDLSHORTLINE(o, h, l, c),
-                'CDLSPINNINGTOP': lambda h, l, c, v, o, p: talib.CDLSPINNINGTOP(o, h, l, c),
-                'CDLSTALLEDPATTERN': lambda h, l, c, v, o, p: talib.CDLSTALLEDPATTERN(o, h, l, c),
-                'CDLSTICKSANDWICH': lambda h, l, c, v, o, p: talib.CDLSTICKSANDWICH(o, h, l, c),
-                'CDLTAKURI': lambda h, l, c, v, o, p: talib.CDLTAKURI(o, h, l, c),
-                'CDLTASUKIGAP': lambda h, l, c, v, o, p: talib.CDLTASUKIGAP(o, h, l, c),
-                'CDLTHRUSTING': lambda h, l, c, v, o, p: talib.CDLTHRUSTING(o, h, l, c),
-                'CDLTRISTAR': lambda h, l, c, v, o, p: talib.CDLTRISTAR(o, h, l, c),
-                'CDLUNIQUE3RIVER': lambda h, l, c, v, o, p: talib.CDLUNIQUE3RIVER(o, h, l, c),
-                'CDLUPSIDEGAP2CROWS': lambda h, l, c, v, o, p: talib.CDLUPSIDEGAP2CROWS(o, h, l, c),
-                'CDLXSIDEGAP3METHODS': lambda h, l, c, v, o, p: talib.CDLXSIDEGAP3METHODS(o, h, l, c),
+            # Mapear los datos según el tipo
+            data_map = {
+                'o': open_prices,
+                'h': high,
+                'l': low,
+                'c': close,
+                'v': volume
             }
-        }
+            
+            # Preparar argumentos posicionales
+            args = [data_map[key] for key in cls.DATA_REQUIREMENTS.get(data_type, ['c'])]
+            
+            # Preparar kwargs, evaluando expresiones si es necesario
+            kwargs = {}
+            for key, value in params.items():
+                if isinstance(value, str):
+                    if value == 'p':
+                        kwargs[key] = period
+                    elif 'p' in value:
+                        # Evaluar expresiones que contienen 'p'
+                        kwargs[key] = eval(value, {'p': period, 'max': max})
+                    else:
+                        kwargs[key] = value
+                else:
+                    kwargs[key] = value
+            
+            # Llamar a la función
+            result = func(*args, **kwargs)
+            
+            # Si devuelve una tupla, tomar el primer elemento
+            if isinstance(result, tuple):
+                return result[0]
+            
+            return result
+            
+        except Exception as e:
+            return None
     
-    @staticmethod
-    def calculate_indicator(indicator_name: str, high: np.ndarray, low: np.ndarray, 
-                           close: np.ndarray, volume: np.ndarray, open_prices: np.ndarray, 
-                           period: int) -> Optional[np.ndarray]:
-        """Calcula un indicador específico con manejo de errores"""
+    @classmethod
+    def get_all_categories(cls):
+        """Retorna todas las categorías con sus indicadores"""
+        categories = cls.CATEGORIES.copy()
         
-        categories = TechnicalIndicators.get_all_categories()
+        # Añadir patrones de velas dinámicamente
+        categories["🕯️ Patrones de Velas"] = cls.CANDLE_PATTERNS
         
-        for category, indicators in categories.items():
-            if indicator_name in indicators:
-                try:
-                    result = indicators[indicator_name](high, low, close, volume, open_prices, period)
-                    
-                    # Manejar resultados múltiples (como BBANDS, MACD, etc.)
-                    if isinstance(result, tuple):
-                        # Para indicadores que retornan múltiples líneas
-                        return result[0]  # Retornar la línea principal
-                    
-                    return result
-                    
-                except Exception as e:
-                    return None
-        
-        return None
+        return categories
     
-    @staticmethod
-    def needs_period(indicator_name: str) -> bool:
+    @classmethod
+    def needs_period(cls, indicator_name):
         """Determina si un indicador necesita período"""
-        no_period_indicators = [
+        # Indicadores sin período
+        no_period = [
             'HT_TRENDLINE', 'BOP', 'HT_DCPERIOD', 'HT_DCPHASE', 'HT_PHASOR',
             'HT_SINE', 'HT_TRENDMODE', 'MACDFIX', 'AD', 'OBV', 'TRANGE',
             'AVGPRICE', 'MEDPRICE', 'TYPPRICE', 'WCLPRICE', 'SAR', 'SAREXT',
             'MAMA', 'ACOS', 'ASIN', 'ATAN', 'CEIL', 'COS', 'COSH', 'EXP',
             'FLOOR', 'LN', 'LOG10', 'SIN', 'SINH', 'SQRT', 'TAN', 'TANH'
-        ] + [ind for ind in TechnicalIndicators.get_all_categories()["🕯️ Patrones de Velas"].keys()]
+        ] + cls.CANDLE_PATTERNS
         
-        return indicator_name not in no_period_indicators
+        return indicator_name not in no_period
 
 # ===================== FUNCIONES DE CÁLCULO =====================
 @st.cache_data
@@ -655,21 +557,7 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
             marker=dict(
                 color=hist_data,
                 colorscale='Viridis',
-                line=dict(color='rgba(255,255,255,0.2)', width=0.5),
-                colorbar=dict(
-                    title="Valor",
-                    titleside="right",
-                    tickmode="linear",
-                    tick0=hist_data.min(),
-                    dtick=(hist_data.max() - hist_data.min()) / 5,
-                    len=0.4,
-                    y=0.75,
-                    yanchor="middle",
-                    thickness=15,
-                    bgcolor="rgba(30, 34, 56, 0.8)",
-                    bordercolor="rgba(99, 102, 241, 0.3)",
-                    borderwidth=1
-                )
+                line=dict(color='rgba(255,255,255,0.2)', width=0.5)
             ),
             name='Distribución',
             showlegend=False,
@@ -715,19 +603,7 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
                         [0.75, '#6BCF7F'],
                         [1, '#4ECDC4']
                     ],
-                    line=dict(color='rgba(255,255,255,0.3)', width=1),
-                    colorbar=dict(
-                        title="Retorno %",
-                        titleside="right",
-                        tickmode="linear",
-                        len=0.4,
-                        y=0.25,
-                        yanchor="middle",
-                        thickness=15,
-                        bgcolor="rgba(30, 34, 56, 0.8)",
-                        bordercolor="rgba(99, 102, 241, 0.3)",
-                        borderwidth=1
-                    )
+                    line=dict(color='rgba(255,255,255,0.3)', width=1)
                 ),
                 text=[f'{val:.2f}%' for val in returns_values],
                 textposition='outside',
@@ -741,22 +617,25 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
         
         # Línea de tendencia suavizada
         if len(returns_values) > 3:
-            from scipy.interpolate import make_interp_spline
-            x_smooth = np.linspace(0, len(returns_values)-1, 300)
-            spl = make_interp_spline(range(len(returns_values)), returns_values, k=3)
-            y_smooth = spl(x_smooth)
-            
-            fig.add_trace(
-                go.Scatter(
-                    x=x_smooth,
-                    y=y_smooth,
-                    mode='lines',
-                    line=dict(color='rgba(255, 217, 61, 0.8)', width=2),
-                    name='Tendencia',
-                    showlegend=False
-                ),
-                row=1, col=2
-            )
+            try:
+                from scipy.interpolate import make_interp_spline
+                x_smooth = np.linspace(0, len(returns_values)-1, 300)
+                spl = make_interp_spline(range(len(returns_values)), returns_values, k=3)
+                y_smooth = spl(x_smooth)
+                
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_smooth,
+                        y=y_smooth,
+                        mode='lines',
+                        line=dict(color='rgba(255, 217, 61, 0.8)', width=2),
+                        name='Tendencia',
+                        showlegend=False
+                    ),
+                    row=1, col=2
+                )
+            except:
+                pass
     
     # 3. Correlación móvil con gradiente
     if f'returns_{return_days}_days' in data.columns:
@@ -774,11 +653,8 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
                     y=rolling_corr.values,
                     mode='lines',
                     line=dict(
-                        color=rolling_corr.values,
-                        colorscale='RdYlGn',
-                        width=2,
-                        cmin=-1,
-                        cmax=1
+                        color='#00D2FF',
+                        width=2
                     ),
                     fill='tonexty',
                     fillcolor='rgba(0, 210, 255, 0.05)',
@@ -826,19 +702,7 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
                             color=y_clean,
                             colorscale='Spectral',
                             opacity=0.4,
-                            line=dict(width=0),
-                            colorbar=dict(
-                                title="Retorno %",
-                                titleside="right",
-                                tickmode="linear",
-                                len=0.4,
-                                y=0.25,
-                                yanchor="middle",
-                                thickness=15,
-                                bgcolor="rgba(30, 34, 56, 0.8)",
-                                bordercolor="rgba(99, 102, 241, 0.3)",
-                                borderwidth=1
-                            )
+                            line=dict(width=0)
                         ),
                         name='Datos',
                         showlegend=False,
@@ -1092,11 +956,11 @@ def main():
                                                           'OBV', 'AD', 'NATR', 'STDDEV', 'TSF'],
                 "🔥 Trading Profesional (15 indicadores)": ['RSI', 'MACD', 'BBANDS', 'ATR', 'ADX',
                                                             'STOCH', 'CCI', 'MFI', 'OBV', 'SAR',
-                                                            'EMA', 'VWAP', 'WILLR', 'PPO', 'AROON'],
+                                                            'EMA', 'WILLR', 'PPO', 'AROON'],
                 "📉 Volatilidad + Volumen": ['ATR', 'NATR', 'TRANGE', 'BBANDS', 'STDDEV',
                                             'OBV', 'AD', 'ADOSC', 'MFI'],
-                "🕯️ Solo Patrones de Velas": [k for k in categories["🕯️ Patrones de Velas"].keys()],
-                "🚀 TODO (¡200+ indicadores!)": sum([list(cat.keys()) for cat in categories.values()], [])
+                "🕯️ Solo Patrones de Velas": [k for k in categories["🕯️ Patrones de Velas"]],
+                "🚀 TODO (¡200+ indicadores!)": sum([list(cat) for cat in categories.values()], [])
             }
             
             selected_indicators = presets.get(preset, [])
@@ -1111,13 +975,13 @@ def main():
             )
             
             for category in selected_categories:
-                selected_indicators.extend(list(categories[category].keys()))
+                selected_indicators.extend(categories[category])
             
             # Mostrar indicadores por categoría
             for category in selected_categories:
                 with st.expander(f"{category} ({len(categories[category])} indicadores)", expanded=False):
                     cols = st.columns(2)
-                    for i, ind in enumerate(categories[category].keys()):
+                    for i, ind in enumerate(categories[category]):
                         cols[i % 2].write(f"• {ind}")
             
             st.info(f"📊 {len(selected_indicators)} indicadores en {len(selected_categories)} categorías")
@@ -1125,7 +989,7 @@ def main():
         else:  # Selección Manual
             all_indicators_flat = []
             for cat_name, cat_indicators in categories.items():
-                for ind in cat_indicators.keys():
+                for ind in cat_indicators:
                     all_indicators_flat.append(f"{ind} ({cat_name.split()[0]})")
             
             selected_with_category = st.multiselect(
@@ -1210,12 +1074,9 @@ def main():
             """, unsafe_allow_html=True)
             
             # Tabs principales
-            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            tab1, tab2 = st.tabs([
                 "📈 **Análisis de Percentiles**",
-                "🏆 **Top Performers**",
-                "📊 **Matrix de Correlación**",
-                "📉 **Distribuciones**",
-                "📋 **Estadísticas**"
+                "🏆 **Top Performers**"
             ])
             
             with tab1:
@@ -1311,326 +1172,17 @@ def main():
                     # Ordenar por spread
                     best_df = best_df.sort_values('Spread', ascending=False).head(30)
                     
-                    # Gráfico de barras horizontal
-                    fig = go.Figure()
-                    
-                    fig.add_trace(go.Bar(
-                        y=best_df['Indicador'].head(20),
-                        x=best_df['Spread'].head(20),
-                        orientation='h',
-                        marker=dict(
-                            color=best_df['Spread'].head(20),
-                            colorscale='Viridis',
-                            line=dict(color='rgba(255,255,255,0.3)', width=1),
-                            colorbar=dict(
-                                title="Spread %",
-                                thickness=15,
-                                len=0.7,
-                                bgcolor="rgba(30, 34, 56, 0.8)",
-                                bordercolor="rgba(99, 102, 241, 0.3)",
-                                borderwidth=1
-                            )
-                        ),
-                        text=[f'{s:.2f}%' for s in best_df['Spread'].head(20)],
-                        textposition='outside',
-                        hovertemplate='<b>%{y}</b><br>Spread: %{x:.3f}%<br>Sharpe: %{customdata:.3f}<extra></extra>',
-                        customdata=best_df['Sharpe'].head(20)
-                    ))
-                    
-                    fig.update_layout(
-                        template="plotly_dark",
-                        height=600,
-                        title="<b>Top 20 Indicadores por Spread de Retorno</b>",
-                        xaxis_title="<b>Spread (%)</b>",
-                        yaxis_title="",
-                        plot_bgcolor='rgba(30, 34, 56, 0.3)',
-                        paper_bgcolor='rgba(14, 17, 39, 0.95)',
-                        font=dict(family="Inter, sans-serif", color='#E0E5FF'),
-                        margin=dict(l=150, r=50, t=50, b=50)
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True)
-                    
                     # Tabla detallada
-                    with st.expander("📊 **Tabla Completa de Resultados**", expanded=False):
-                        st.dataframe(
-                            best_df.style.format({
-                                'P_Superior': '{:.2f}%',
-                                'P_Inferior': '{:.2f}%',
-                                'Spread': '{:.2f}%',
-                                'Sharpe': '{:.3f}',
-                                'Promedio': '{:.2f}%'
-                            }).background_gradient(cmap='RdYlGn', subset=['Spread', 'Sharpe']),
-                            use_container_width=True
-                        )
-            
-            with tab3:
-                st.markdown("### 📊 Análisis de Correlación")
-                
-                # Seleccionar indicadores para la matriz
-                available_for_matrix = list(indicators.columns)[:50]  # Limitar a 50 para visualización
-                
-                selected_for_matrix = st.multiselect(
-                    "Seleccionar indicadores para la matriz de correlación",
-                    available_for_matrix,
-                    default=available_for_matrix[:min(15, len(available_for_matrix))]
-                )
-                
-                if selected_for_matrix and len(selected_for_matrix) > 1:
-                    # Calcular matriz de correlación
-                    corr_matrix = indicators[selected_for_matrix].corr()
-                    
-                    # Crear heatmap
-                    fig = go.Figure(data=go.Heatmap(
-                        z=corr_matrix.values,
-                        x=corr_matrix.columns,
-                        y=corr_matrix.columns,
-                        colorscale='RdBu',
-                        zmid=0,
-                        zmin=-1,
-                        zmax=1,
-                        text=np.round(corr_matrix.values, 2),
-                        texttemplate='%{text}',
-                        textfont={"size": 9},
-                        colorbar=dict(
-                            title="Correlación",
-                            thickness=15,
-                            len=0.7,
-                            bgcolor="rgba(30, 34, 56, 0.8)",
-                            bordercolor="rgba(99, 102, 241, 0.3)",
-                            borderwidth=1
-                        ),
-                        hoverongaps=False,
-                        hovertemplate='<b>%{x}</b> vs <b>%{y}</b><br>Correlación: %{z:.3f}<extra></extra>'
-                    ))
-                    
-                    fig.update_layout(
-                        template="plotly_dark",
-                        height=max(400, len(selected_for_matrix) * 25),
-                        title="<b>Matriz de Correlación de Indicadores</b>",
-                        xaxis={'side': 'bottom', 'tickangle': 45},
-                        yaxis={'side': 'left'},
-                        plot_bgcolor='rgba(30, 34, 56, 0.3)',
-                        paper_bgcolor='rgba(14, 17, 39, 0.95)',
-                        font=dict(family="Inter, sans-serif", color='#E0E5FF'),
-                        margin=dict(l=100, r=50, t=50, b=100)
+                    st.dataframe(
+                        best_df.style.format({
+                            'P_Superior': '{:.2f}%',
+                            'P_Inferior': '{:.2f}%',
+                            'Spread': '{:.2f}%',
+                            'Sharpe': '{:.3f}',
+                            'Promedio': '{:.2f}%'
+                        }).background_gradient(cmap='RdYlGn', subset=['Spread', 'Sharpe']),
+                        use_container_width=True
                     )
-                    
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Estadísticas de correlación
-                    col1, col2, col3 = st.columns(3)
-                    
-                    corr_values = corr_matrix.values[np.triu_indices_from(corr_matrix.values, k=1)]
-                    
-                    with col1:
-                        st.metric("Correlación Media", f"{np.mean(corr_values):.3f}")
-                    with col2:
-                        st.metric("Correlación Máxima", f"{np.max(corr_values):.3f}")
-                    with col3:
-                        st.metric("Correlación Mínima", f"{np.min(corr_values):.3f}")
-            
-            with tab4:
-                st.markdown("### 📉 Distribución de Retornos")
-                
-                # Gráficos de distribución
-                fig = make_subplots(
-                    rows=2, cols=2,
-                    subplot_titles=(
-                        '<b>Distribución de Retornos</b>',
-                        '<b>Q-Q Plot</b>',
-                        '<b>Retornos por Período</b>',
-                        '<b>Volatilidad Móvil</b>'
-                    )
-                )
-                
-                # 1. Histograma de retornos
-                for i in range(1, min(5, return_days + 1)):
-                    ret_col = f'returns_{i}_days'
-                    if ret_col in data.columns:
-                        returns_data_hist = data[ret_col].dropna()
-                        
-                        fig.add_trace(
-                            go.Histogram(
-                                x=returns_data_hist,
-                                name=f'{i} días',
-                                opacity=0.7,
-                                nbinsx=50
-                            ),
-                            row=1, col=1
-                        )
-                
-                # 2. Q-Q Plot
-                from scipy import stats
-                if f'returns_{return_days}_days' in data.columns:
-                    returns_qq = data[f'returns_{return_days}_days'].dropna()
-                    theoretical_quantiles = stats.norm.ppf(np.linspace(0.01, 0.99, len(returns_qq)))
-                    sample_quantiles = np.sort(returns_qq)
-                    
-                    fig.add_trace(
-                        go.Scatter(
-                            x=theoretical_quantiles,
-                            y=sample_quantiles,
-                            mode='markers',
-                            marker=dict(size=3, color='#00D2FF'),
-                            name='Q-Q'
-                        ),
-                        row=1, col=2
-                    )
-                    
-                    # Línea de referencia
-                    fig.add_trace(
-                        go.Scatter(
-                            x=[-3, 3],
-                            y=[-3, 3],
-                            mode='lines',
-                            line=dict(color='#FF6B6B', dash='dash'),
-                            name='Normal'
-                        ),
-                        row=1, col=2
-                    )
-                
-                # 3. Retornos por período
-                returns_summary = []
-                for i in range(1, return_days + 1):
-                    ret_col = f'returns_{i}_days'
-                    if ret_col in data.columns:
-                        ret_data = data[ret_col].dropna()
-                        returns_summary.append({
-                            'Período': f'{i}d',
-                            'Media': ret_data.mean(),
-                            'Std': ret_data.std(),
-                            'Sharpe': ret_data.mean() / ret_data.std() * np.sqrt(252/i) if ret_data.std() > 0 else 0
-                        })
-                
-                if returns_summary:
-                    ret_df = pd.DataFrame(returns_summary)
-                    
-                    fig.add_trace(
-                        go.Bar(
-                            x=ret_df['Período'],
-                            y=ret_df['Sharpe'],
-                            marker=dict(
-                                color=ret_df['Sharpe'],
-                                colorscale='RdYlGn',
-                                line=dict(color='rgba(255,255,255,0.3)', width=1)
-                            ),
-                            text=[f'{s:.2f}' for s in ret_df['Sharpe']],
-                            textposition='outside',
-                            name='Sharpe Ratio'
-                        ),
-                        row=2, col=1
-                    )
-                
-                # 4. Volatilidad móvil
-                if f'returns_{return_days}_days' in data.columns:
-                    vol_rolling = data[f'returns_{return_days}_days'].rolling(window=30).std()
-                    
-                    fig.add_trace(
-                        go.Scatter(
-                            x=vol_rolling.index,
-                            y=vol_rolling.values,
-                            mode='lines',
-                            line=dict(color='#FFD93D', width=2),
-                            fill='tozeroy',
-                            fillcolor='rgba(255, 217, 61, 0.1)',
-                            name='Vol 30d'
-                        ),
-                        row=2, col=2
-                    )
-                
-                # Actualizar diseño
-                fig.update_layout(
-                    template="plotly_dark",
-                    height=800,
-                    showlegend=True,
-                    title={
-                        'text': "<b>Análisis de Distribución de Retornos</b>",
-                        'font': {'size': 24, 'color': '#E0E5FF'}
-                    },
-                    plot_bgcolor='rgba(30, 34, 56, 0.3)',
-                    paper_bgcolor='rgba(14, 17, 39, 0.95)',
-                    font=dict(family="Inter, sans-serif", color='#E0E5FF')
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with tab5:
-                st.markdown("### 📋 Resumen Estadístico")
-                
-                # Métricas principales
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric("📅 Total Días", f"{len(data):,}")
-                    st.metric("📊 Indicadores", f"{len(selected_indicators)}")
-                
-                with col2:
-                    st.metric("⚙️ Configuraciones", f"{len(indicators.columns):,}")
-                    st.metric("🎯 Con Percentiles", f"{len(returns_data):,}")
-                
-                with col3:
-                    if f'returns_{return_days}_days' in data.columns:
-                        ret_mean = data[f'returns_{return_days}_days'].mean()
-                        ret_std = data[f'returns_{return_days}_days'].std()
-                        st.metric(f"μ Retorno {return_days}d", f"{ret_mean:.3f}%")
-                        st.metric(f"σ Retorno {return_days}d", f"{ret_std:.3f}%")
-                
-                with col4:
-                    start_price = data['Close'].iloc[0]
-                    end_price = data['Close'].iloc[-1]
-                    total_return = (end_price / start_price - 1) * 100
-                    st.metric("Precio Inicial", f"${start_price:.2f}")
-                    st.metric("Retorno Total", f"{total_return:.2f}%")
-                
-                # Tabla resumen de indicadores
-                st.markdown("#### 📊 Resumen por Categoría")
-                
-                category_summary = []
-                for cat_name, cat_indicators in TechnicalIndicators.get_all_categories().items():
-                    calculated = sum(1 for col in indicators.columns 
-                                   for ind_name in cat_indicators.keys() 
-                                   if ind_name in col)
-                    if calculated > 0:
-                        category_summary.append({
-                            'Categoría': cat_name,
-                            'Calculados': calculated,
-                            'Disponibles': len(cat_indicators)
-                        })
-                
-                if category_summary:
-                    cat_df = pd.DataFrame(category_summary)
-                    
-                    # Gráfico de barras
-                    fig = go.Figure(data=[
-                        go.Bar(name='Calculados', x=cat_df['Categoría'], y=cat_df['Calculados'],
-                              marker_color='#667eea'),
-                        go.Bar(name='Disponibles', x=cat_df['Categoría'], y=cat_df['Disponibles'],
-                              marker_color='rgba(102, 126, 234, 0.3)')
-                    ])
-                    
-                    fig.update_layout(
-                        barmode='overlay',
-                        template="plotly_dark",
-                        height=400,
-                        title="<b>Indicadores por Categoría</b>",
-                        plot_bgcolor='rgba(30, 34, 56, 0.3)',
-                        paper_bgcolor='rgba(14, 17, 39, 0.95)',
-                        font=dict(family="Inter, sans-serif", color='#E0E5FF')
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                # Información del sistema
-                with st.expander("ℹ️ **Información del Sistema**", expanded=False):
-                    st.info(f"""
-                        **Versión TALib:** {talib.__version__}  
-                        **Total Funciones TALib:** {len([f for f in dir(talib) if not f.startswith('_')])}  
-                        **Datos desde:** {data.index[0].strftime('%Y-%m-%d')}  
-                        **Datos hasta:** {data.index[-1].strftime('%Y-%m-%d')}  
-                        **Frecuencia:** Diaria  
-                        **Fuente:** Yahoo Finance
-                    """)
         
         else:
             st.error("❌ Error en el análisis. Verifica los parámetros y vuelve a intentar.")
