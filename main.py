@@ -69,12 +69,13 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ===================== CLASE DE INDICADORES TÉCNICOS =====================
+# ===================== CLASE COMPLETA DE INDICADORES TÉCNICOS =====================
 class TechnicalIndicators:
-    """Manejador compacto de todos los indicadores TALib"""
+    """Manejador completo de TODOS los indicadores TALib (200+)"""
     
+    # Configuración completa de todos los indicadores
     INDICATOR_CONFIG = {
-        # Overlaps
+        # ============ OVERLAP STUDIES ============
         'BBANDS': ('BBANDS', {'timeperiod': 'p', 'nbdevup': 2, 'nbdevdn': 2, 'matype': 0}),
         'DEMA': ('DEMA', {'timeperiod': 'p'}),
         'EMA': ('EMA', {'timeperiod': 'p'}),
@@ -82,16 +83,21 @@ class TechnicalIndicators:
         'KAMA': ('KAMA', {'timeperiod': 'p'}),
         'MA': ('MA', {'timeperiod': 'p', 'matype': 0}),
         'MAMA': ('MAMA', {'fastlimit': 0.5, 'slowlimit': 0.05}),
+        'MAVP': ('MAVP', {'minperiod': 2, 'maxperiod': 30, 'matype': 0}),
         'MIDPOINT': ('MIDPOINT', {'timeperiod': 'p'}),
         'MIDPRICE': ('MIDPRICE', {'timeperiod': 'p'}),
         'SAR': ('SAR', {'acceleration': 0.02, 'maximum': 0.2}),
+        'SAREXT': ('SAREXT', {'startvalue': 0, 'offsetonreverse': 0, 'accelerationinitlong': 0.02,
+                              'accelerationlong': 0.02, 'accelerationmaxlong': 0.20,
+                              'accelerationinitshort': 0.02, 'accelerationshort': 0.02, 
+                              'accelerationmaxshort': 0.20}),
         'SMA': ('SMA', {'timeperiod': 'p'}),
         'T3': ('T3', {'timeperiod': 'p', 'vfactor': 0}),
         'TEMA': ('TEMA', {'timeperiod': 'p'}),
         'TRIMA': ('TRIMA', {'timeperiod': 'p'}),
         'WMA': ('WMA', {'timeperiod': 'p'}),
         
-        # Momentum
+        # ============ MOMENTUM INDICATORS ============
         'ADX': ('ADX', {'timeperiod': 'p'}),
         'ADXR': ('ADXR', {'timeperiod': 'p'}),
         'APO': ('APO', {'fastperiod': 'max(p//2, 2)', 'slowperiod': 'p', 'matype': 0}),
@@ -128,17 +134,24 @@ class TechnicalIndicators:
                               'timeperiod2': 'max(p//2, 3)', 'timeperiod3': 'p'}),
         'WILLR': ('WILLR', {'timeperiod': 'p'}),
         
-        # Volume
+        # ============ VOLUME INDICATORS ============
         'AD': ('AD', {}),
         'ADOSC': ('ADOSC', {'fastperiod': 'max(p//3, 2)', 'slowperiod': 'p'}),
         'OBV': ('OBV', {}),
         
-        # Volatility
+        # ============ VOLATILITY INDICATORS ============
         'ATR': ('ATR', {'timeperiod': 'p'}),
         'NATR': ('NATR', {'timeperiod': 'p'}),
         'TRANGE': ('TRANGE', {}),
         
-        # Statistics
+        # ============ CYCLE INDICATORS ============
+        'HT_DCPERIOD': ('HT_DCPERIOD', {}),
+        'HT_DCPHASE': ('HT_DCPHASE', {}),
+        'HT_PHASOR': ('HT_PHASOR', {}),
+        'HT_SINE': ('HT_SINE', {}),
+        'HT_TRENDMODE': ('HT_TRENDMODE', {}),
+        
+        # ============ STATISTIC FUNCTIONS ============
         'BETA': ('BETA', {'timeperiod': 'p'}),
         'CORREL': ('CORREL', {'timeperiod': 'p'}),
         'LINEARREG': ('LINEARREG', {'timeperiod': 'p'}),
@@ -148,38 +161,114 @@ class TechnicalIndicators:
         'STDDEV': ('STDDEV', {'timeperiod': 'p', 'nbdev': 1}),
         'TSF': ('TSF', {'timeperiod': 'p'}),
         'VAR': ('VAR', {'timeperiod': 'p', 'nbdev': 1}),
+        
+        # ============ MATH TRANSFORM ============
+        'ACOS': ('ACOS', {}),
+        'ASIN': ('ASIN', {}),
+        'ATAN': ('ATAN', {}),
+        'CEIL': ('CEIL', {}),
+        'COS': ('COS', {}),
+        'COSH': ('COSH', {}),
+        'EXP': ('EXP', {}),
+        'FLOOR': ('FLOOR', {}),
+        'LN': ('LN', {}),
+        'LOG10': ('LOG10', {}),
+        'SIN': ('SIN', {}),
+        'SINH': ('SINH', {}),
+        'SQRT': ('SQRT', {}),
+        'TAN': ('TAN', {}),
+        'TANH': ('TANH', {}),
+        
+        # ============ MATH OPERATORS ============
+        'ADD': ('ADD', {}),
+        'DIV': ('DIV', {}),
+        'MAX': ('MAX', {'timeperiod': 'p'}),
+        'MAXINDEX': ('MAXINDEX', {'timeperiod': 'p'}),
+        'MIN': ('MIN', {'timeperiod': 'p'}),
+        'MININDEX': ('MININDEX', {'timeperiod': 'p'}),
+        'MINMAX': ('MINMAX', {'timeperiod': 'p'}),
+        'MINMAXINDEX': ('MINMAXINDEX', {'timeperiod': 'p'}),
+        'MULT': ('MULT', {}),
+        'SUB': ('SUB', {}),
+        'SUM': ('SUM', {'timeperiod': 'p'}),
+        
+        # ============ PRICE TRANSFORM ============
+        'AVGPRICE': ('AVGPRICE', {}),
+        'MEDPRICE': ('MEDPRICE', {}),
+        'TYPPRICE': ('TYPPRICE', {}),
+        'WCLPRICE': ('WCLPRICE', {}),
     }
     
+    # Lista de todos los patrones de velas (61 patrones)
+    CANDLE_PATTERNS = [
+        'CDL2CROWS', 'CDL3BLACKCROWS', 'CDL3INSIDE', 'CDL3LINESTRIKE', 'CDL3OUTSIDE',
+        'CDL3STARSINSOUTH', 'CDL3WHITESOLDIERS', 'CDLABANDONEDBABY', 'CDLADVANCEBLOCK',
+        'CDLBELTHOLD', 'CDLBREAKAWAY', 'CDLCLOSINGMARUBOZU', 'CDLCONCEALBABYSWALL',
+        'CDLCOUNTERATTACK', 'CDLDARKCLOUDCOVER', 'CDLDOJI', 'CDLDOJISTAR',
+        'CDLDRAGONFLYDOJI', 'CDLENGULFING', 'CDLEVENINGDOJISTAR', 'CDLEVENINGSTAR',
+        'CDLGAPSIDESIDEWHITE', 'CDLGRAVESTONEDOJI', 'CDLHAMMER', 'CDLHANGINGMAN',
+        'CDLHARAMI', 'CDLHARAMICROSS', 'CDLHIGHWAVE', 'CDLHIKKAKE', 'CDLHIKKAKEMOD',
+        'CDLHOMINGPIGEON', 'CDLIDENTICAL3CROWS', 'CDLINNECK', 'CDLINVERTEDHAMMER',
+        'CDLKICKING', 'CDLKICKINGBYLENGTH', 'CDLLADDERBOTTOM', 'CDLLONGLEGGEDDOJI',
+        'CDLLONGLINE', 'CDLMARUBOZU', 'CDLMATCHINGLOW', 'CDLMATHOLD', 
+        'CDLMORNINGDOJISTAR', 'CDLMORNINGSTAR', 'CDLONNECK', 'CDLPIERCING',
+        'CDLRICKSHAWMAN', 'CDLRISEFALL3METHODS', 'CDLSEPARATINGLINES',
+        'CDLSHOOTINGSTAR', 'CDLSHORTLINE', 'CDLSPINNINGTOP', 'CDLSTALLEDPATTERN',
+        'CDLSTICKSANDWICH', 'CDLTAKURI', 'CDLTASUKIGAP', 'CDLTHRUSTING',
+        'CDLTRISTAR', 'CDLUNIQUE3RIVER', 'CDLUPSIDEGAP2CROWS', 'CDLXSIDEGAP3METHODS'
+    ]
+    
+    # Categorías organizadas
     CATEGORIES = {
-        "📈 Overlaps": ['BBANDS', 'DEMA', 'EMA', 'HT_TRENDLINE', 'KAMA', 'MA', 
-                       'MAMA', 'MIDPOINT', 'MIDPRICE', 'SAR', 
-                       'SMA', 'T3', 'TEMA', 'TRIMA', 'WMA'],
-        "💫 Momentum": ['ADX', 'ADXR', 'APO', 'AROON', 'AROONOSC', 'BOP', 
-                       'CCI', 'CMO', 'DX', 'MACD', 'MACDEXT', 'MACDFIX', 
-                       'MFI', 'MINUS_DI', 'MINUS_DM', 'MOM', 'PLUS_DI', 
-                       'PLUS_DM', 'PPO', 'ROC', 'ROCP', 'ROCR', 'ROCR100', 
-                       'RSI', 'STOCH', 'STOCHF', 'STOCHRSI', 'TRIX', 
-                       'ULTOSC', 'WILLR'],
-        "📊 Volumen": ['AD', 'ADOSC', 'OBV'],
-        "📉 Volatilidad": ['ATR', 'NATR', 'TRANGE'],
-        "📐 Estadísticas": ['BETA', 'CORREL', 'LINEARREG', 'LINEARREG_ANGLE', 
-                           'LINEARREG_INTERCEPT', 'LINEARREG_SLOPE', 'STDDEV', 'TSF', 'VAR'],
+        "📈 Overlaps (17)": ['BBANDS', 'DEMA', 'EMA', 'HT_TRENDLINE', 'KAMA', 'MA', 
+                            'MAMA', 'MAVP', 'MIDPOINT', 'MIDPRICE', 'SAR', 'SAREXT',
+                            'SMA', 'T3', 'TEMA', 'TRIMA', 'WMA'],
+        "💫 Momentum (30)": ['ADX', 'ADXR', 'APO', 'AROON', 'AROONOSC', 'BOP', 
+                            'CCI', 'CMO', 'DX', 'MACD', 'MACDEXT', 'MACDFIX', 
+                            'MFI', 'MINUS_DI', 'MINUS_DM', 'MOM', 'PLUS_DI', 
+                            'PLUS_DM', 'PPO', 'ROC', 'ROCP', 'ROCR', 'ROCR100', 
+                            'RSI', 'STOCH', 'STOCHF', 'STOCHRSI', 'TRIX', 
+                            'ULTOSC', 'WILLR'],
+        "📊 Volume (3)": ['AD', 'ADOSC', 'OBV'],
+        "📉 Volatility (3)": ['ATR', 'NATR', 'TRANGE'],
+        "🎯 Cycles (5)": ['HT_DCPERIOD', 'HT_DCPHASE', 'HT_PHASOR', 'HT_SINE', 'HT_TRENDMODE'],
+        "📐 Statistics (9)": ['BETA', 'CORREL', 'LINEARREG', 'LINEARREG_ANGLE', 
+                             'LINEARREG_INTERCEPT', 'LINEARREG_SLOPE', 'STDDEV', 'TSF', 'VAR'],
+        "🔢 Math Transform (15)": ['ACOS', 'ASIN', 'ATAN', 'CEIL', 'COS', 'COSH', 
+                                   'EXP', 'FLOOR', 'LN', 'LOG10', 'SIN', 'SINH', 
+                                   'SQRT', 'TAN', 'TANH'],
+        "➕ Math Operators (11)": ['ADD', 'DIV', 'MAX', 'MAXINDEX', 'MIN', 'MININDEX',
+                                  'MINMAX', 'MINMAXINDEX', 'MULT', 'SUB', 'SUM'],
+        "💹 Price Transform (4)": ['AVGPRICE', 'MEDPRICE', 'TYPPRICE', 'WCLPRICE'],
+        "🕯️ Pattern Recognition (61)": CANDLE_PATTERNS
     }
     
     @classmethod
     def _get_indicator_inputs(cls, func_name):
-        """Detecta qué inputs necesita una función"""
-        if func_name in ['AD', 'ADOSC']:
+        """Detecta qué inputs necesita cada función"""
+        # Patrones de velas
+        if func_name.startswith('CDL'):
+            return 'ohlc'
+        # Volume
+        elif func_name in ['AD', 'ADOSC']:
             return 'hlcv'
         elif func_name in ['OBV']:
             return 'cv'
+        # Price
+        elif func_name in ['AVGPRICE']:
+            return 'ohlc'
+        elif func_name in ['MEDPRICE', 'MIDPRICE']:
+            return 'hl'
+        elif func_name in ['TYPPRICE', 'WCLPRICE']:
+            return 'hlc'
+        # Technical
         elif func_name in ['ATR', 'NATR', 'ADX', 'ADXR', 'CCI', 'DX', 'MINUS_DI', 'MINUS_DM', 'PLUS_DI', 'PLUS_DM']:
             return 'hlc'
         elif func_name == 'MFI':
             return 'hlcv'
         elif func_name in ['BOP']:
             return 'ohlc'
-        elif func_name in ['SAR']:
+        elif func_name in ['SAR', 'SAREXT']:
             return 'hl'
         elif func_name in ['TRANGE']:
             return 'hlc'
@@ -189,15 +278,25 @@ class TechnicalIndicators:
             return 'hl'
         elif func_name in ['AROON']:
             return 'hl'
-        elif func_name in ['MIDPRICE']:
-            return 'hl'
+        # Math operators
+        elif func_name in ['ADD', 'DIV', 'MULT', 'SUB']:
+            return 'cc'
+        elif func_name in ['MAX', 'MAXINDEX', 'MIN', 'MININDEX', 'MINMAX', 'MINMAXINDEX', 'SUM']:
+            return 'c'
+        # Default
         else:
             return 'c'
     
     @classmethod
     def calculate_indicator(cls, indicator_name, high, low, close, volume, open_prices, period):
-        """Calcula un indicador de forma dinámica"""
+        """Calcula cualquier indicador de TALib"""
         try:
+            # Patrones de velas (directo)
+            if indicator_name.startswith('CDL'):
+                func = getattr(talib, indicator_name)
+                return func(open_prices, high, low, close)
+            
+            # Indicador configurado
             if indicator_name not in cls.INDICATOR_CONFIG:
                 if hasattr(talib, indicator_name):
                     func = getattr(talib, indicator_name)
@@ -209,6 +308,7 @@ class TechnicalIndicators:
             
             data_type = cls._get_indicator_inputs(func_name)
             
+            # Preparar argumentos según tipo
             if data_type == 'ohlc':
                 args = [open_prices, high, low, close]
             elif data_type == 'hlcv':
@@ -219,9 +319,12 @@ class TechnicalIndicators:
                 args = [high, low]
             elif data_type == 'cv':
                 args = [close, volume]
+            elif data_type == 'cc':
+                args = [close, close]  # Para operadores matemáticos
             else:
                 args = [close]
             
+            # Procesar parámetros
             kwargs = {}
             for key, value in params.items():
                 if isinstance(value, str):
@@ -244,14 +347,29 @@ class TechnicalIndicators:
     
     @classmethod
     def get_all_categories(cls):
-        """Retorna todas las categorías con sus indicadores"""
+        """Retorna todas las categorías con conteo"""
         return cls.CATEGORIES
     
     @classmethod
     def needs_period(cls, indicator_name):
         """Determina si un indicador necesita período"""
-        no_period = ['HT_TRENDLINE', 'BOP', 'MACDFIX', 'AD', 'OBV', 'TRANGE', 'SAR', 'MAMA']
+        no_period = [
+            'HT_TRENDLINE', 'BOP', 'MACDFIX', 'AD', 'OBV', 'TRANGE', 
+            'SAR', 'SAREXT', 'MAMA', 'MAVP',
+            'HT_DCPERIOD', 'HT_DCPHASE', 'HT_PHASOR', 'HT_SINE', 'HT_TRENDMODE',
+            'AVGPRICE', 'MEDPRICE', 'TYPPRICE', 'WCLPRICE',
+            'ACOS', 'ASIN', 'ATAN', 'CEIL', 'COS', 'COSH', 
+            'EXP', 'FLOOR', 'LN', 'LOG10', 'SIN', 'SINH', 
+            'SQRT', 'TAN', 'TANH',
+            'ADD', 'DIV', 'MULT', 'SUB'
+        ] + cls.CANDLE_PATTERNS
+        
         return indicator_name not in no_period
+    
+    @classmethod
+    def get_total_indicators(cls):
+        """Retorna el número total de indicadores"""
+        return len(cls.INDICATOR_CONFIG) + len(cls.CANDLE_PATTERNS)
 
 # ===================== FUNCIONES DE CÁLCULO ORIGINALES =====================
 @st.cache_data
@@ -303,6 +421,7 @@ def calculate_indicators_batch(ticker: str, start_date: str, end_date: datetime,
     
     progress_container = st.container()
     progress_bar = st.progress(0)
+    status_text = st.empty()
     
     for indicator_name in indicators_list:
         if TechnicalIndicators.needs_period(indicator_name):
@@ -311,6 +430,8 @@ def calculate_indicators_batch(ticker: str, start_date: str, end_date: datetime,
             
             for period in periods:
                 total_calculations += 1
+                status_text.text(f"Calculando {indicator_name}_{period}...")
+                
                 result = TechnicalIndicators.calculate_indicator(
                     indicator_name, high, low, close, volume, open_prices, period
                 )
@@ -322,6 +443,8 @@ def calculate_indicators_batch(ticker: str, start_date: str, end_date: datetime,
                 progress_bar.progress(min(successful_calculations / max(total_calculations, 1), 1.0))
         else:
             total_calculations += 1
+            status_text.text(f"Calculando {indicator_name}...")
+            
             result = TechnicalIndicators.calculate_indicator(
                 indicator_name, high, low, close, volume, open_prices, 0
             )
@@ -333,9 +456,11 @@ def calculate_indicators_batch(ticker: str, start_date: str, end_date: datetime,
             progress_bar.progress(min(successful_calculations / max(total_calculations, 1), 1.0))
     
     progress_bar.empty()
+    status_text.empty()
     
     indicators = indicators.dropna(axis=1, how='all')
     
+    # Calcular análisis de percentiles
     returns_data = {}
     
     for indicator_col in indicators.columns:
@@ -380,10 +505,10 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
-            f'<b>📊 Distribución de {indicator_name}</b>',
-            f'<b>📈 Retornos por Percentil ({return_days} días)</b>',
-            f'<b>📉 Correlación Móvil (126 días)</b>',
-            f'<b>🎯 Análisis de Dispersión</b>'
+            f'<b>Distribución de {indicator_name}</b>',
+            f'<b>Retornos por Percentil ({return_days} días)</b>',
+            f'<b>Correlación Móvil (126 días)</b>',
+            f'<b>Análisis de Dispersión</b>'
         ),
         row_heights=[0.5, 0.5],
         column_widths=[0.5, 0.5],
@@ -393,31 +518,105 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
                [{"type": "scatter"}, {"type": "scatter"}]]
     )
     
-    # 1. Histograma
+    # 1. Histograma con KDE
     hist_data = indicators[indicator_name].dropna()
     
+    # Agregar histograma
     fig.add_trace(
         go.Histogram(
             x=hist_data,
             nbinsx=70,
             marker=dict(
-                color='rgba(102, 126, 234, 0.8)',
+                color='rgba(102, 126, 234, 0.6)',
                 line=dict(color='rgba(255,255,255,0.2)', width=0.5)
             ),
             name='Distribución',
             showlegend=False,
-            hovertemplate='<b>Valor:</b> %{x:.2f}<br><b>Frecuencia:</b> %{y}<extra></extra>'
+            hovertemplate='<b>Valor:</b> %{x:.2f}<br><b>Frecuencia:</b> %{y}<extra></extra>',
+            histnorm='probability density',  # Normalizar para que coincida con KDE
+            yaxis='y'
         ),
         row=1, col=1
     )
     
-    mean_val = hist_data.mean()
-    median_val = hist_data.median()
+    # Calcular y agregar KDE (PDF curve)
+    from scipy import stats as scipy_stats
     
-    fig.add_vline(x=mean_val, line=dict(color='#FF6B6B', width=2, dash='dash'),
+    if len(hist_data) > 1:
+        try:
+            # Calcular KDE
+            kde = scipy_stats.gaussian_kde(hist_data)
+            
+            # Crear puntos para la curva suave
+            x_range = np.linspace(hist_data.min(), hist_data.max(), 200)
+            kde_values = kde(x_range)
+            
+            # Agregar curva KDE
+            fig.add_trace(
+                go.Scatter(
+                    x=x_range,
+                    y=kde_values,
+                    mode='lines',
+                    line=dict(color='#FFD93D', width=3),
+                    name='PDF (KDE)',
+                    showlegend=True,
+                    hovertemplate='<b>Valor:</b> %{x:.2f}<br><b>Densidad:</b> %{y:.4f}<extra></extra>',
+                    yaxis='y'
+                ),
+                row=1, col=1
+            )
+            
+            # Calcular percentiles importantes
+            percentiles = [5, 25, 50, 75, 95]
+            percentile_values = np.percentile(hist_data, percentiles)
+            
+            # Agregar líneas de percentiles
+            colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#4ECDC4', '#FF6B6B']
+            for p, val, color in zip(percentiles, percentile_values, colors):
+                fig.add_vline(
+                    x=val, 
+                    line=dict(color=color, width=1, dash='dash'),
+                    row=1, col=1,
+                    annotation_text=f'P{p}={val:.1f}',
+                    annotation_position="top" if p % 2 == 0 else "bottom"
+                )
+            
+        except Exception:
+            pass  # Si falla KDE, solo mostrar histograma
+    
+    mean_val = hist_data.mean()
+    std_val = hist_data.std()
+    
+    # Agregar línea de media
+    fig.add_vline(x=mean_val, line=dict(color='#FF1744', width=2.5, dash='solid'),
                   row=1, col=1, annotation_text=f'μ={mean_val:.2f}', annotation_position="top")
-    fig.add_vline(x=median_val, line=dict(color='#4ECDC4', width=2, dash='dot'),
-                  row=1, col=1, annotation_text=f'M={median_val:.2f}', annotation_position="bottom")
+    
+    # Área de desviación estándar
+    fig.add_vrect(x0=mean_val-std_val, x1=mean_val+std_val,
+                  fillcolor="rgba(102, 126, 234, 0.1)", layer="below",
+                  line_width=0, row=1, col=1,
+                  annotation_text=f"±1σ", annotation_position="top left")
+    
+    # Agregar estadísticas en texto
+    skewness = scipy_stats.skew(hist_data)
+    kurtosis_val = scipy_stats.kurtosis(hist_data)
+    
+    stats_text = f"<b>Estadísticas:</b><br>N: {len(hist_data):,}<br>μ: {mean_val:.2f}<br>σ: {std_val:.2f}<br>Skew: {skewness:.3f}<br>Kurt: {kurtosis_val:.3f}"
+    
+    fig.add_annotation(
+        x=0.02, y=0.98,
+        xref="paper", yref="paper",
+        text=stats_text,
+        showarrow=False,
+        bgcolor="rgba(30, 34, 56, 0.8)",
+        bordercolor="rgba(99, 102, 241, 0.3)",
+        borderwidth=1,
+        font=dict(size=10, color='white'),
+        align="left",
+        xanchor="left",
+        yanchor="top",
+        row=1, col=1
+    )
     
     # 2. Retornos por percentil
     returns_col = f'returns_{return_days}_days_mean'
@@ -471,7 +670,7 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
             
             fig.add_hline(y=0, line=dict(color='rgba(255,255,255,0.2)', width=1), row=2, col=1)
     
-    # 4. Scatter plot
+    # 4. Scatter plot con regresión
     if f'returns_{return_days}_days' in data.columns:
         common_index = data.index.intersection(indicators[indicator_name].index)
         if len(common_index) > 0:
@@ -483,6 +682,7 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
             y_clean = y_data[mask]
             
             if len(x_clean) > 1:
+                # Scatter plot
                 fig.add_trace(
                     go.Scattergl(
                         x=x_clean,
@@ -510,13 +710,35 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
                     ),
                     row=2, col=2
                 )
+                
+                # Agregar línea de regresión
+                try:
+                    z = np.polyfit(x_clean, y_clean, 1)
+                    p = np.poly1d(z)
+                    x_trend = np.linspace(x_clean.min(), x_clean.max(), 100)
+                    y_trend = p(x_trend)
+                    
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x_trend,
+                            y=y_trend,
+                            mode='lines',
+                            line=dict(color='#FFD93D', width=2, dash='dash'),
+                            name='Regresión',
+                            showlegend=False,
+                            hovertemplate='<b>y = %.4fx + %.4f</b><extra></extra>' % (z[0], z[1])
+                        ),
+                        row=2, col=2
+                    )
+                except:
+                    pass
     
     fig.update_layout(
         template="plotly_dark",
         height=900,
         showlegend=False,
         title={
-            'text': f"<b>📊 Análisis de Percentiles: {indicator_name}</b>",
+            'text': f"<b>Análisis de Percentiles: {indicator_name}</b>",
             'font': {'size': 26, 'color': '#E0E5FF', 'family': 'Inter'},
             'x': 0.5,
             'xanchor': 'center'
@@ -527,6 +749,19 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
         font=dict(family="Inter, sans-serif", color='#E0E5FF', size=11),
         margin=dict(l=60, r=60, t=100, b=60)
     )
+    
+    # Update axes labels
+    fig.update_xaxes(title_text="<b>Valor del Indicador</b>", row=1, col=1)
+    fig.update_yaxes(title_text="<b>Densidad de Probabilidad</b>", row=1, col=1)
+    
+    fig.update_xaxes(title_text="<b>Percentiles</b>", row=1, col=2)
+    fig.update_yaxes(title_text=f"<b>Retorno ({return_days}d) %</b>", row=1, col=2)
+    
+    fig.update_xaxes(title_text="<b>Fecha</b>", row=2, col=1)
+    fig.update_yaxes(title_text="<b>Correlación</b>", row=2, col=1)
+    
+    fig.update_xaxes(title_text=f"<b>{indicator_name}</b>", row=2, col=2)
+    fig.update_yaxes(title_text=f"<b>Retorno ({return_days}d) %</b>", row=2, col=2)
     
     return fig
 
@@ -704,10 +939,10 @@ def create_optimal_period_visualization(results_df):
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
-            '<b>📊 Period vs Spread</b>',
-            '<b>🎯 Direction Analysis</b>',
-            '<b>📈 Top 10 Configurations</b>',
-            '<b>💡 Score Distribution</b>'
+            '<b>Period vs Spread</b>',
+            '<b>Direction Analysis</b>',
+            '<b>Top 10 Configurations</b>',
+            '<b>Score Distribution</b>'
         ),
         specs=[
             [{"type": "scatter"}, {"type": "scatter"}],
@@ -788,14 +1023,18 @@ def create_optimal_period_visualization(results_df):
 
 # ===================== INTERFAZ PRINCIPAL =====================
 def main():
+    # Título con emoji usando HTML
     st.markdown("""
         <h1 style='text-align: center;'>
-            📊 Analizador Cuantitativo Completo
+            <span style='font-size: 1.2em;'>📊</span> Analizador Cuantitativo Completo
         </h1>
         <p style='text-align: center; color: #8892B0; font-size: 1.2rem; margin-bottom: 2rem;'>
             Análisis de Percentiles + Optimal Period Discovery + Rule Extraction
         </p>
-    """, unsafe_allow_html=True)
+        <p style='text-align: center; color: #667eea; font-size: 0.9rem;'>
+            {total} indicadores técnicos disponibles (TALib completo)
+        </p>
+    """.format(total=TechnicalIndicators.get_total_indicators()), unsafe_allow_html=True)
     
     # Initialize session state
     if 'analysis_done' not in st.session_state:
@@ -805,7 +1044,7 @@ def main():
         st.session_state.data = None
         st.session_state.optimal_results = None
     
-    # Ensure optimal_results exists (for backwards compatibility)
+    # Ensure optimal_results exists
     if 'optimal_results' not in st.session_state:
         st.session_state.optimal_results = None
     
@@ -854,23 +1093,35 @@ def main():
         
         preset = st.selectbox(
             "Preset",
-            ["📊 Esenciales (5)", "💫 Momentum (10)", "📈 Completo (20)", "🚀 Todo (40+)"]
+            ["📊 Esenciales (5)", "💫 Momentum (10)", "📈 Completo (25)", 
+             "🎯 Top 50", "🚀 TODO (157+61 patrones)"]
         )
+        
+        all_indicators = list(TechnicalIndicators.INDICATOR_CONFIG.keys())
         
         if preset == "📊 Esenciales (5)":
             selected_indicators = ['RSI', 'MACD', 'CCI', 'ROC', 'ATR']
         elif preset == "💫 Momentum (10)":
             selected_indicators = ['RSI', 'MACD', 'STOCH', 'CCI', 'MFI', 
                                  'WILLR', 'MOM', 'ROC', 'ADX', 'PPO']
-        elif preset == "📈 Completo (20)":
+        elif preset == "📈 Completo (25)":
             selected_indicators = ['RSI', 'MACD', 'BBANDS', 'ATR', 'ADX',
                                  'SMA', 'EMA', 'STOCH', 'CCI', 'MFI',
                                  'WILLR', 'MOM', 'ROC', 'PPO', 'CMO',
-                                 'AROON', 'ULTOSC', 'OBV', 'AD', 'NATR']
+                                 'AROON', 'ULTOSC', 'OBV', 'AD', 'NATR',
+                                 'TRIX', 'TEMA', 'WMA', 'DEMA', 'KAMA']
+        elif preset == "🎯 Top 50":
+            selected_indicators = all_indicators[:50]
         else:
-            selected_indicators = list(TechnicalIndicators.INDICATOR_CONFIG.keys())
+            selected_indicators = all_indicators + TechnicalIndicators.CANDLE_PATTERNS
         
-        st.info(f"📊 {len(selected_indicators)} indicadores")
+        # Mostrar indicadores seleccionados por categoría
+        with st.expander(f"📋 {len(selected_indicators)} indicadores seleccionados"):
+            categories = TechnicalIndicators.get_all_categories()
+            for cat_name, cat_indicators in categories.items():
+                selected_in_cat = [ind for ind in selected_indicators if ind in cat_indicators]
+                if selected_in_cat:
+                    st.write(f"**{cat_name}**: {len(selected_in_cat)}")
         
         analyze_button = st.button(
             "🚀 **EJECUTAR ANÁLISIS**",
@@ -883,7 +1134,7 @@ def main():
             st.error("Seleccione indicadores")
             return
         
-        with st.spinner('🔄 Procesando...'):
+        with st.spinner('🔄 Procesando análisis completo...'):
             returns_data, indicators, data = calculate_indicators_batch(
                 ticker,
                 start_date.strftime('%Y-%m-%d'),
@@ -910,7 +1161,7 @@ def main():
         returns_data = st.session_state.returns_data
         indicators = st.session_state.indicators
         data = st.session_state.data
-        optimal_results = st.session_state.optimal_results
+        optimal_results = st.session_state.optimal_results if 'optimal_results' in st.session_state else None
         
         st.success(f"✅ Análisis completado: {len(indicators.columns)} configuraciones")
         
@@ -1046,22 +1297,32 @@ def main():
         with tab4:
             st.markdown("### 📋 Extracted Trading Rules")
             
-            if not optimal_results.empty:
+            if optimal_results is not None and not optimal_results.empty:
                 rules = extract_trading_rules(optimal_results, min_spread=2.0, max_p_value=0.1, top_n=10)
                 
                 if rules:
                     for i, rule in enumerate(rules[:5], 1):
-                        color = "🟠" if rule['strategy_type'] == "MOMENTUM" else "🔵" if rule['strategy_type'] == "MEAN REVERSION" else "⚪"
+                        if rule['strategy_type'] == "MOMENTUM":
+                            emoji = "🟠"
+                            bg = "background: #FFF4E6; border-left: 4px solid #FF9800;"
+                        elif rule['strategy_type'] == "MEAN REVERSION":
+                            emoji = "🔵"
+                            bg = "background: #E3F2FD; border-left: 4px solid #2196F3;"
+                        else:
+                            emoji = "⚪"
+                            bg = "background: #F5F5F5; border-left: 4px solid #9E9E9E;"
                         
                         st.markdown(f"""
-                        #### {color} Rule #{i}: {rule['indicator']} (Period {rule['period']})
-                        - **Type:** {rule['strategy_type']}
-                        - **Entry:** {rule['entry_condition']}
-                        - **Exit:** {rule['exit_condition']}
-                        - **Expected Spread:** {rule['expected_spread']}
-                        - **Confidence:** {rule['confidence']}
-                        - **Direction Score:** {rule['direction_score']:.3f}
-                        """)
+                        <div style='padding: 15px; margin: 10px 0; border-radius: 8px; {bg}'>
+                            <h4>{emoji} Rule #{i}: {rule['indicator']} (Period {rule['period']})</h4>
+                            <p><b>Type:</b> {rule['strategy_type']}</p>
+                            <p><b>Entry:</b> {rule['entry_condition']}</p>
+                            <p><b>Exit:</b> {rule['exit_condition']}</p>
+                            <p><b>Expected Spread:</b> {rule['expected_spread']}</p>
+                            <p><b>Confidence:</b> {rule['confidence']}</p>
+                            <p><b>Direction Score:</b> {rule['direction_score']:.3f}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                     
                     # Export button
                     if st.button("📥 Export Rules as CSV"):
@@ -1075,6 +1336,8 @@ def main():
                         )
                 else:
                     st.warning("No significant rules found. Try adjusting parameters.")
+            else:
+                st.info("Run analysis to extract trading rules")
     
     else:
         if st.session_state.get('analysis_done'):
