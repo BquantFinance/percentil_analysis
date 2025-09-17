@@ -3,4 +3,4 @@ pandas
 numpy
 plotly
 matplotlib
-pandas_ta
+pandas-ta
