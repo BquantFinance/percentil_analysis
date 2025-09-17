@@ -955,6 +955,10 @@ def main():
         st.session_state.optimal_results = None
         st.session_state.trading_rules = None
     
+    # Ensure trading_rules exists (for existing sessions)
+    if 'trading_rules' not in st.session_state:
+        st.session_state.trading_rules = None
+    
     with st.sidebar:
         st.markdown("## ⚙️ Configuration")
         
