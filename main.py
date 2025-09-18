@@ -5,7 +5,7 @@ import yfinance as yf
 import talib
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime
+from datetime import datetime, timedelta
 import warnings
 from typing import Dict, List, Tuple, Optional
 from scipy import stats
@@ -13,15 +13,15 @@ from scipy.stats import spearmanr
 
 warnings.filterwarnings('ignore')
 
-# ===================== CONFIGURACIÓN DE PÁGINA =====================
+# ===================== PAGE CONFIGURATION =====================
 st.set_page_config(
     page_title="Complete Quantitative Analyzer",
-    page_icon="📊",
+    page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ===================== ESTILOS CSS =====================
+# ===================== CSS STYLING =====================
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -36,88 +36,71 @@ st.markdown("""
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 700;
-        font-size: 2.8rem !important;
+        font-size: 2.5rem !important;
         letter-spacing: -0.02em;
         margin-bottom: 0.5rem;
     }
     
     div[data-testid="metric-container"] {
         background: rgba(99, 102, 241, 0.1);
-        backdrop-filter: blur(10px);
         border: 1px solid rgba(99, 102, 241, 0.3);
-        padding: 1.2rem;
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
-    }
-    
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 0.8rem 2.5rem;
-        font-weight: 600;
-        font-size: 1rem;
+        padding: 1rem;
         border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.35);
+        backdrop-filter: blur(10px);
     }
     
     .trading-rule {
         background: rgba(30, 34, 56, 0.6);
         border: 1px solid rgba(99, 102, 241, 0.3);
         border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-    }
-    
-    .rule-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    
-    .rule-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 16px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin: 0 4px;
+        padding: 1.2rem;
+        margin: 0.8rem 0;
     }
     
     .momentum-badge {
         background: rgba(255, 152, 0, 0.2);
         color: #FF9800;
         border: 1px solid #FF9800;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-right: 8px;
     }
     
     .mean-reversion-badge {
         background: rgba(33, 150, 243, 0.2);
         color: #2196F3;
         border: 1px solid #2196F3;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-right: 8px;
     }
     
-    .strong-signal {
-        background: rgba(76, 175, 80, 0.2);
-        color: #4CAF50;
-        border: 1px solid #4CAF50;
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 10px;
+        transition: transform 0.2s;
     }
     
-    .calculation-status {
-        background: rgba(99, 102, 241, 0.1);
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
+    .stButton > button:hover {
+        transform: translateY(-2px);
     }
     </style>
     """, unsafe_allow_html=True)
 
-# ===================== CLASE COMPLETA DE INDICADORES TÉCNICOS =====================
+# ===================== TECHNICAL INDICATORS CLASS =====================
 class TechnicalIndicators:
-    """Manejador completo de TODOS los indicadores TALib (200+)"""
+    """Complete TALib indicators manager (200+)"""
     
-    # Configuración completa de todos los indicadores
     INDICATOR_CONFIG = {
         # ============ OVERLAP STUDIES ============
         'BBANDS': ('BBANDS', {'timeperiod': 'p', 'nbdevup': 2, 'nbdevdn': 2, 'matype': 0}),
@@ -243,7 +226,6 @@ class TechnicalIndicators:
         'WCLPRICE': ('WCLPRICE', {}),
     }
     
-    # Lista de todos los patrones de velas (61 patrones)
     CANDLE_PATTERNS = [
         'CDL2CROWS', 'CDL3BLACKCROWS', 'CDL3INSIDE', 'CDL3LINESTRIKE', 'CDL3OUTSIDE',
         'CDL3STARSINSOUTH', 'CDL3WHITESOLDIERS', 'CDLABANDONEDBABY', 'CDLADVANCEBLOCK',
@@ -262,7 +244,6 @@ class TechnicalIndicators:
         'CDLTRISTAR', 'CDLUNIQUE3RIVER', 'CDLUPSIDEGAP2CROWS', 'CDLXSIDEGAP3METHODS'
     ]
     
-    # Categorías organizadas
     CATEGORIES = {
         "📈 Overlaps (17)": ['BBANDS', 'DEMA', 'EMA', 'HT_TRENDLINE', 'KAMA', 'MA', 
                             'MAMA', 'MAVP', 'MIDPOINT', 'MIDPRICE', 'SAR', 'SAREXT',
@@ -289,7 +270,7 @@ class TechnicalIndicators:
     
     @classmethod
     def _get_indicator_inputs(cls, func_name):
-        """Detecta qué inputs necesita cada función"""
+        """Detect input requirements for each indicator"""
         if func_name.startswith('CDL'):
             return 'ohlc'
         elif func_name in ['AD', 'ADOSC']:
@@ -327,20 +308,21 @@ class TechnicalIndicators:
     
     @classmethod
     def calculate_indicator(cls, indicator_name, high, low, close, volume, open_prices, period):
-        """Calcula cualquier indicador de TALib con mejor manejo de errores"""
+        """Calculate any TALib indicator with error handling"""
         try:
-            # Skip if not enough data for the period
+            # Check data sufficiency
             if period > 0 and len(close) < period * 2:
                 return None
             
+            # Candle patterns
             if indicator_name.startswith('CDL'):
                 func = getattr(talib, indicator_name)
                 result = func(open_prices, high, low, close)
-                # Check if pattern found anything
                 if result is not None and np.any(result != 0):
                     return result
                 return None
             
+            # Regular indicators
             if indicator_name not in cls.INDICATOR_CONFIG:
                 if hasattr(talib, indicator_name):
                     func = getattr(talib, indicator_name)
@@ -352,6 +334,7 @@ class TechnicalIndicators:
             
             data_type = cls._get_indicator_inputs(func_name)
             
+            # Prepare arguments
             if data_type == 'ohlc':
                 args = [open_prices, high, low, close]
             elif data_type == 'hlcv':
@@ -367,6 +350,7 @@ class TechnicalIndicators:
             else:
                 args = [close]
             
+            # Process parameters
             kwargs = {}
             for key, value in params.items():
                 if isinstance(value, str):
@@ -382,21 +366,19 @@ class TechnicalIndicators:
             if isinstance(result, tuple):
                 result = result[0]
             
-            # Check if result is valid (not all NaN)
+            # Validate result
             if result is not None and not np.all(np.isnan(result)):
-                # Also check if there's enough variation
                 if np.std(result[~np.isnan(result)]) > 1e-10:
                     return result
             
             return None
             
-        except Exception as e:
-            # Silent fail - too many indicators to show each error
+        except Exception:
             return None
     
     @classmethod
     def needs_period(cls, indicator_name):
-        """Determina si un indicador necesita período"""
+        """Check if indicator needs period parameter"""
         no_period = [
             'HT_TRENDLINE', 'BOP', 'MACDFIX', 'AD', 'OBV', 'TRANGE', 
             'SAR', 'SAREXT', 'MAMA', 'MAVP',
@@ -411,27 +393,26 @@ class TechnicalIndicators:
         return indicator_name not in no_period
     
     @classmethod
-    def get_total_indicators(cls):
-        """Retorna el número total de indicadores"""
-        return len(cls.INDICATOR_CONFIG) + len(cls.CANDLE_PATTERNS)
+    def get_all_indicators(cls):
+        """Get list of all available indicators"""
+        return list(cls.INDICATOR_CONFIG.keys()) + cls.CANDLE_PATTERNS
     
     @classmethod
-    def get_all_indicators(cls):
-        """Retorna lista de todos los indicadores"""
-        return list(cls.INDICATOR_CONFIG.keys()) + cls.CANDLE_PATTERNS
+    def get_total_count(cls):
+        """Get total count of indicators"""
+        return len(cls.INDICATOR_CONFIG) + len(cls.CANDLE_PATTERNS)
 
-# ===================== FUNCIONES DE CÁLCULO =====================
+# ===================== CALCULATION FUNCTIONS =====================
 @st.cache_data
-def download_data(ticker: str, start_date: str, end_date: datetime) -> Optional[pd.DataFrame]:
-    """Descarga datos históricos"""
+def download_data(ticker: str, period: str, start_date: str = None, end_date: str = None) -> Optional[pd.DataFrame]:
+    """Download historical data using yfinance period or date range"""
     try:
-        data = yf.download(
-            ticker,
-            start=start_date,
-            end=end_date,
-            progress=False,
-            auto_adjust=True
-        )
+        if period != "custom":
+            # Use yfinance period
+            data = yf.download(ticker, period=period, progress=False, auto_adjust=True)
+        else:
+            # Use custom date range
+            data = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
         
         if data.empty:
             st.error(f"❌ No data found for {ticker}")
@@ -444,16 +425,17 @@ def download_data(ticker: str, start_date: str, end_date: datetime) -> Optional[
         return None
 
 @st.cache_data
-def calculate_all_indicators(ticker: str, start_date: str, end_date: datetime,
+def calculate_all_indicators(ticker: str, period: str, start_date: str, end_date: str,
                              quantiles: int, return_days: int, 
-                             periods_to_test: List[int]) -> Tuple:
-    """Calcula TODOS los indicadores disponibles"""
+                             periods_to_test: List[int],
+                             selected_categories: List[str]) -> Tuple:
+    """Calculate all selected indicators"""
     
-    data = download_data(ticker, start_date, end_date)
+    data = download_data(ticker, period, start_date, end_date)
     if data is None:
-        return None, None, None
+        return None, None, None, None
     
-    # Calculate returns
+    # Calculate returns for multiple periods
     for i in range(1, return_days + 1):
         data[f'returns_{i}_days'] = data['Close'].pct_change(i) * 100
     
@@ -466,29 +448,32 @@ def calculate_all_indicators(ticker: str, start_date: str, end_date: datetime,
     
     indicators = pd.DataFrame(index=data.index)
     
-    # Get ALL indicators
-    all_indicator_names = TechnicalIndicators.get_all_indicators()
+    # Get indicators to calculate based on selected categories
+    indicators_to_calc = []
+    for category, indicator_list in TechnicalIndicators.CATEGORIES.items():
+        if category in selected_categories or "ALL" in selected_categories:
+            indicators_to_calc.extend(indicator_list)
     
-    total_calculations = 0
-    successful_calculations = 0
+    # Remove duplicates
+    indicators_to_calc = list(set(indicators_to_calc))
     
     # Count total calculations
-    for indicator_name in all_indicator_names:
-        if TechnicalIndicators.needs_period(indicator_name):
-            total_calculations += len(periods_to_test)
-        else:
-            total_calculations += 1
+    total_calculations = sum(
+        len(periods_to_test) if TechnicalIndicators.needs_period(ind) else 1 
+        for ind in indicators_to_calc
+    )
     
     progress_bar = st.progress(0)
     status_text = st.empty()
     calculation_counter = 0
+    successful = 0
     
-    # Calculate all indicators
-    for indicator_name in all_indicator_names:
+    # Calculate indicators
+    for indicator_name in indicators_to_calc:
         if TechnicalIndicators.needs_period(indicator_name):
             for period in periods_to_test:
                 calculation_counter += 1
-                status_text.text(f"Calculating {indicator_name}_{period}... ({calculation_counter}/{total_calculations})")
+                status_text.text(f"📊 Calculating {indicator_name}_{period}... ({calculation_counter}/{total_calculations})")
                 
                 result = TechnicalIndicators.calculate_indicator(
                     indicator_name, high, low, close, volume, open_prices, period
@@ -496,12 +481,12 @@ def calculate_all_indicators(ticker: str, start_date: str, end_date: datetime,
                 
                 if result is not None and not np.all(np.isnan(result)):
                     indicators[f'{indicator_name}_{period}'] = result
-                    successful_calculations += 1
+                    successful += 1
                 
                 progress_bar.progress(calculation_counter / total_calculations)
         else:
             calculation_counter += 1
-            status_text.text(f"Calculating {indicator_name}... ({calculation_counter}/{total_calculations})")
+            status_text.text(f"📊 Calculating {indicator_name}... ({calculation_counter}/{total_calculations})")
             
             result = TechnicalIndicators.calculate_indicator(
                 indicator_name, high, low, close, volume, open_prices, 0
@@ -509,17 +494,17 @@ def calculate_all_indicators(ticker: str, start_date: str, end_date: datetime,
             
             if result is not None and not np.all(np.isnan(result)):
                 indicators[indicator_name] = result
-                successful_calculations += 1
+                successful += 1
             
             progress_bar.progress(calculation_counter / total_calculations)
     
     progress_bar.empty()
     status_text.empty()
     
-    # Clean up
+    # Drop empty columns
     indicators = indicators.dropna(axis=1, how='all')
     
-    # Calculate percentile analysis for all indicators
+    # Calculate percentile analysis
     returns_data = {}
     
     for indicator_col in indicators.columns:
@@ -544,29 +529,45 @@ def calculate_all_indicators(ticker: str, start_date: str, end_date: datetime,
                         returns_data[indicator_col][f'returns_{i}_days_mean'] = grouped['mean']
                         returns_data[indicator_col][f'returns_{i}_days_std'] = grouped['std']
                         returns_data[indicator_col][f'returns_{i}_days_count'] = grouped['count']
-                        
-        except Exception:
+        except:
             continue
     
-    st.success(f"✅ Calculated {successful_calculations} indicator configurations out of {total_calculations} attempted")
+    st.success(f"✅ Calculated {successful} configurations out of {total_calculations} attempted")
     
-    return returns_data, indicators, data
+    # Summary statistics
+    summary = {
+        'total_attempted': total_calculations,
+        'successful': successful,
+        'indicators_count': len(indicators.columns),
+        'data_points': len(data),
+        'date_range': f"{data.index[0].strftime('%Y-%m-%d')} to {data.index[-1].strftime('%Y-%m-%d')}"
+    }
+    
+    return returns_data, indicators, data, summary
 
-def analyze_indicator_for_rules(indicator_values, returns, quantiles=10):
-    """Análisis rápido para generación de reglas"""
+def analyze_for_rules(indicator_values, returns, quantiles=10):
+    """Analyze indicator for trading rules"""
     try:
         temp_df = pd.DataFrame({
             'indicator': indicator_values,
             'returns': returns
         }).dropna()
         
-        if len(temp_df) < quantiles * 2:
+        if len(temp_df) < max(20, quantiles):
             return None
         
-        temp_df['percentile'] = pd.qcut(temp_df['indicator'], q=quantiles, labels=False, duplicates='drop')
+        # Try creating quantiles
+        try:
+            temp_df['percentile'] = pd.qcut(temp_df['indicator'], q=quantiles, labels=False, duplicates='drop')
+        except:
+            try:
+                temp_df['percentile'] = pd.qcut(temp_df['indicator'], q=5, labels=False, duplicates='drop')
+            except:
+                return None
+        
         percentile_returns = temp_df.groupby('percentile')['returns'].agg(['mean', 'std', 'count'])
         
-        if len(percentile_returns) < quantiles * 0.8:
+        if len(percentile_returns) < 3:
             return None
         
         metrics = {}
@@ -577,9 +578,13 @@ def analyze_indicator_for_rules(indicator_values, returns, quantiles=10):
         metrics['top_return'] = top_return
         metrics['bottom_return'] = bottom_return
         
-        correlation, p_value = spearmanr(range(len(percentile_returns)), percentile_returns['mean'].values)
-        metrics['direction'] = correlation
-        metrics['p_value'] = p_value
+        if len(percentile_returns) >= 3:
+            correlation, p_value = spearmanr(range(len(percentile_returns)), percentile_returns['mean'].values)
+            metrics['direction'] = correlation
+            metrics['p_value'] = p_value
+        else:
+            metrics['direction'] = 1.0 if top_return > bottom_return else -1.0
+            metrics['p_value'] = 0.5
         
         metrics['sharpe'] = abs(metrics['spread']) / (percentile_returns['std'].mean() + 1e-8)
         metrics['best_long_percentile'] = percentile_returns['mean'].idxmax() + 1
@@ -592,40 +597,35 @@ def analyze_indicator_for_rules(indicator_values, returns, quantiles=10):
     except Exception:
         return None
 
-def generate_trading_rules_from_all(indicators, data, return_days=5, min_spread=1.0, max_p_value=0.2, top_n=20):
-    """Genera reglas de trading de TODOS los indicadores calculados"""
+def generate_trading_rules(indicators, data, return_days=5, min_spread=1.0, max_p_value=0.15, top_n=30):
+    """Generate trading rules from all indicators"""
     
     returns = data['Close'].pct_change(return_days).shift(-return_days) * 100
     all_results = []
     
-    status_text = st.empty()
     progress_bar = st.progress(0)
-    total_indicators = len(indicators.columns)
-    
-    st.info(f"Analyzing {total_indicators} indicators for trading patterns...")
+    status_text = st.empty()
+    total = len(indicators.columns)
     
     for idx, indicator_col in enumerate(indicators.columns):
-        status_text.text(f"Analyzing {indicator_col} for trading rules... ({idx+1}/{total_indicators})")
+        status_text.text(f"🎯 Analyzing {indicator_col}... ({idx+1}/{total})")
         
         indicator_values = indicators[indicator_col].values
-        metrics = analyze_indicator_for_rules(indicator_values, returns.values, quantiles=10)
+        metrics = analyze_for_rules(indicator_values, returns.values, quantiles=10)
         
-        if metrics and metrics['min_samples'] >= 5:  # Reduced from 10 to 5
+        if metrics and metrics['min_samples'] >= 5:
             metrics['indicator_name'] = indicator_col
             all_results.append(metrics)
         
-        progress_bar.progress((idx + 1) / total_indicators)
+        progress_bar.progress((idx + 1) / total)
     
     progress_bar.empty()
     status_text.empty()
     
-    st.info(f"Found {len(all_results)} indicators with valid patterns")
-    
     if not all_results:
-        st.warning("No indicators passed the initial analysis. Trying with relaxed parameters...")
         return []
     
-    # Convert to DataFrame and filter
+    # Convert to DataFrame
     results_df = pd.DataFrame(all_results)
     results_df['score'] = (
         abs(results_df['spread']) * 0.5 +
@@ -633,68 +633,59 @@ def generate_trading_rules_from_all(indicators, data, return_days=5, min_spread=
         (1 / (results_df['p_value'] + 0.001)) * 0.1
     )
     
-    # Try with original parameters first
-    quality_signals = results_df[
+    # Filter quality signals
+    quality = results_df[
         (abs(results_df['spread']) >= min_spread) & 
         (results_df['p_value'] <= max_p_value)
     ]
     
-    # If not enough rules, relax criteria
-    if len(quality_signals) < 5:
-        st.warning(f"Only {len(quality_signals)} rules with strict criteria. Relaxing parameters...")
-        quality_signals = results_df[abs(results_df['spread']) >= 0.5]  # Just require positive spread
+    # If not enough, relax criteria
+    if len(quality) < 10:
+        quality = results_df[abs(results_df['spread']) >= 0.5]
     
-    # Take top N by score
-    quality_signals = quality_signals.nlargest(min(top_n, len(quality_signals)), 'score')
-    
-    st.success(f"Generating {len(quality_signals)} trading rules")
+    quality = quality.nlargest(min(top_n, len(quality)), 'score')
     
     # Generate rules
     rules = []
-    for idx, row in quality_signals.iterrows():
+    for _, row in quality.iterrows():
         if row['direction'] > 0.3:
-            strategy_type = "MOMENTUM"
-            primary_signal = f"When {row['indicator_name']} is HIGH (top 20%)"
-            primary_action = "STRONG BUY"
-            secondary_signal = f"When {row['indicator_name']} is LOW (bottom 20%)"
-            secondary_action = "STRONG SELL"
+            strategy = "MOMENTUM"
+            entry = f"When {row['indicator_name']} is HIGH (top 20%)"
+            action = "STRONG BUY"
+            exit_signal = f"When {row['indicator_name']} is LOW (bottom 20%)"
+            exit_action = "STRONG SELL"
         elif row['direction'] < -0.3:
-            strategy_type = "MEAN REVERSION"
-            primary_signal = f"When {row['indicator_name']} is LOW (bottom 20%)"
-            primary_action = "STRONG BUY"
-            secondary_signal = f"When {row['indicator_name']} is HIGH (top 20%)"
-            secondary_action = "STRONG SELL"
+            strategy = "MEAN REVERSION"
+            entry = f"When {row['indicator_name']} is LOW (bottom 20%)"
+            action = "STRONG BUY"
+            exit_signal = f"When {row['indicator_name']} is HIGH (top 20%)"
+            exit_action = "STRONG SELL"
         else:
-            strategy_type = "SELECTIVE"
-            primary_signal = f"When {row['indicator_name']} is at Percentile {int(row['best_long_percentile'])}"
-            primary_action = "BUY"
-            secondary_signal = f"When {row['indicator_name']} is at Percentile {int(row['best_short_percentile'])}"
-            secondary_action = "AVOID"
+            strategy = "SELECTIVE"
+            entry = f"When {row['indicator_name']} is at Percentile {int(row['best_long_percentile'])}"
+            action = "BUY"
+            exit_signal = f"When {row['indicator_name']} is at Percentile {int(row['best_short_percentile'])}"
+            exit_action = "AVOID"
         
         rules.append({
             'rank': len(rules) + 1,
-            'indicator_name': row['indicator_name'],
-            'strategy_type': strategy_type,
-            'primary_signal': primary_signal,
-            'primary_action': primary_action,
-            'secondary_signal': secondary_signal,
-            'secondary_action': secondary_action,
-            'expected_spread': row['spread'],
+            'indicator': row['indicator_name'],
+            'strategy': strategy,
+            'entry': entry,
+            'action': action,
+            'exit': exit_signal,
+            'exit_action': exit_action,
+            'spread': row['spread'],
             'top_return': row['top_return'],
             'bottom_return': row['bottom_return'],
-            'direction': row['direction'],
             'confidence': (1 - row['p_value']) * 100,
-            'sharpe': row['sharpe'],
-            'samples': row['total_samples'],
-            'score': row['score']
+            'sharpe': row['sharpe']
         })
     
     return rules
 
-def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict, 
-                           data: pd.DataFrame, indicator_name: str, 
-                           return_days: int) -> go.Figure:
-    """Crea gráficos de análisis de percentiles con KDE"""
+def create_percentile_plot(indicators, returns_data, data, indicator_name, return_days):
+    """Create percentile analysis plot with KDE"""
     
     if indicator_name not in indicators.columns or indicator_name not in returns_data:
         return None
@@ -702,13 +693,11 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
-            f'<b>Distribution of {indicator_name}</b>',
-            f'<b>Returns by Percentile ({return_days} days)</b>',
-            f'<b>Rolling Correlation (126 days)</b>',
-            f'<b>Scatter Analysis</b>'
+            f'<b>Distribution</b>',
+            f'<b>Returns by Percentile</b>',
+            f'<b>Rolling Correlation</b>',
+            f'<b>Scatter Plot</b>'
         ),
-        row_heights=[0.5, 0.5],
-        column_widths=[0.5, 0.5],
         specs=[[{"type": "histogram"}, {"type": "bar"}],
                [{"type": "scatter"}, {"type": "scatter"}]]
     )
@@ -720,17 +709,13 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
         go.Histogram(
             x=hist_data,
             nbinsx=50,
-            marker=dict(
-                color='rgba(102, 126, 234, 0.6)',
-                line=dict(color='rgba(255,255,255,0.2)', width=0.5)
-            ),
-            name='Distribution',
+            marker=dict(color='rgba(102, 126, 234, 0.6)'),
             showlegend=False
         ),
         row=1, col=1
     )
     
-    # Add KDE curve
+    # Add KDE
     if len(hist_data) > 1:
         try:
             from scipy import stats as scipy_stats
@@ -747,7 +732,6 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
                     y=kde_values * kde_scale,
                     mode='lines',
                     line=dict(color='#FFD93D', width=3),
-                    name='KDE',
                     showlegend=False
                 ),
                 row=1, col=1
@@ -756,7 +740,7 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
             pass
     
     mean_val = hist_data.mean()
-    fig.add_vline(x=mean_val, line=dict(color='#FF1744', width=2),
+    fig.add_vline(x=mean_val, line=dict(color='red', width=2),
                   row=1, col=1, annotation_text=f'μ={mean_val:.2f}')
     
     # 2. Returns by percentile
@@ -781,10 +765,10 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
     
     # 3. Rolling correlation
     if f'returns_{return_days}_days' in data.columns:
-        common_index = data.index.intersection(indicators[indicator_name].index)
-        if len(common_index) > 126:
-            aligned_returns = data.loc[common_index, f'returns_{return_days}_days']
-            aligned_indicator = indicators.loc[common_index, indicator_name]
+        common_idx = data.index.intersection(indicators[indicator_name].index)
+        if len(common_idx) > 126:
+            aligned_returns = data.loc[common_idx, f'returns_{return_days}_days']
+            aligned_indicator = indicators.loc[common_idx, indicator_name]
             
             rolling_corr = aligned_returns.rolling(126).corr(aligned_indicator).dropna()
             
@@ -793,57 +777,48 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
                     x=rolling_corr.index,
                     y=rolling_corr.values,
                     mode='lines',
-                    line=dict(color='#00D2FF', width=2),
-                    fill='tozeroy',
-                    fillcolor='rgba(0, 210, 255, 0.1)',
+                    line=dict(color='cyan', width=2),
                     showlegend=False
                 ),
                 row=2, col=1
             )
             
-            fig.add_hline(y=0, line=dict(color='rgba(255,255,255,0.2)', width=1), row=2, col=1)
+            fig.add_hline(y=0, line=dict(color='gray', width=1), row=2, col=1)
     
     # 4. Scatter plot
     if f'returns_{return_days}_days' in data.columns:
-        common_index = data.index.intersection(indicators[indicator_name].index)
-        if len(common_index) > 0:
-            x_data = indicators.loc[common_index, indicator_name]
-            y_data = data.loc[common_index, f'returns_{return_days}_days']
+        common_idx = data.index.intersection(indicators[indicator_name].index)
+        if len(common_idx) > 0:
+            x_data = indicators.loc[common_idx, indicator_name]
+            y_data = data.loc[common_idx, f'returns_{return_days}_days']
             
             mask = ~(x_data.isna() | y_data.isna())
-            x_clean = x_data[mask]
-            y_clean = y_data[mask]
-            
-            if len(x_clean) > 1:
+            if mask.sum() > 1:
+                x_clean = x_data[mask]
+                y_clean = y_data[mask]
+                
                 fig.add_trace(
                     go.Scattergl(
                         x=x_clean,
                         y=y_clean,
                         mode='markers',
-                        marker=dict(
-                            size=3,
-                            color=y_clean,
-                            colorscale='RdYlGn',
-                            opacity=0.5,
-                            showscale=True
-                        ),
+                        marker=dict(size=3, color=y_clean, colorscale='RdYlGn', opacity=0.5),
                         showlegend=False
                     ),
                     row=2, col=2
                 )
                 
-                # Add regression line
+                # Regression line
                 z = np.polyfit(x_clean, y_clean, 1)
                 p = np.poly1d(z)
                 x_trend = np.linspace(x_clean.min(), x_clean.max(), 100)
-                y_trend = p(x_trend)
                 
                 fig.add_trace(
                     go.Scatter(
                         x=x_trend,
-                        y=y_trend,
+                        y=p(x_trend),
                         mode='lines',
-                        line=dict(color='#FFD93D', width=2, dash='dash'),
+                        line=dict(color='yellow', width=2, dash='dash'),
                         showlegend=False
                     ),
                     row=2, col=2
@@ -852,29 +827,22 @@ def create_percentile_plots(indicators: pd.DataFrame, returns_data: Dict,
     fig.update_layout(
         template="plotly_dark",
         height=800,
-        showlegend=False,
-        title={
-            'text': f"<b>Percentile Analysis: {indicator_name}</b>",
-            'font': {'size': 24}
-        },
-        hovermode='closest'
+        title=f"<b>{indicator_name} Analysis</b>",
+        showlegend=False
     )
     
     return fig
 
-# ===================== INTERFAZ PRINCIPAL =====================
+# ===================== MAIN APPLICATION =====================
 def main():
     st.markdown("""
         <h1 style='text-align: center;'>
-            📊 Complete Quantitative Analyzer
+            🔬 Complete Quantitative Analyzer
         </h1>
-        <p style='text-align: center; color: #8892B0; font-size: 1.2rem;'>
-            Analyze ALL {total} TALib Indicators + Pattern Recognition
+        <p style='text-align: center; color: #8892B0; font-size: 1.1rem;'>
+            Analyze {total} TALib Indicators with Custom Period Ranges
         </p>
-        <p style='text-align: center; color: #667eea; font-size: 0.9rem;'>
-            Calculate everything once, then explore individual indicators
-        </p>
-    """.format(total=TechnicalIndicators.get_total_indicators()), unsafe_allow_html=True)
+    """.format(total=TechnicalIndicators.get_total_count()), unsafe_allow_html=True)
     
     # Initialize session state
     if 'analysis_done' not in st.session_state:
@@ -883,85 +851,145 @@ def main():
         st.session_state.indicators = None
         st.session_state.data = None
         st.session_state.trading_rules = None
-    
-    # Ensure trading_rules exists
-    if 'trading_rules' not in st.session_state:
-        st.session_state.trading_rules = None
+        st.session_state.summary = None
     
     with st.sidebar:
         st.markdown("## ⚙️ Configuration")
         
-        with st.expander("📈 **MARKET DATA**", expanded=True):
-            ticker = st.text_input("Symbol", value="SPY")
+        # Data Download Settings
+        with st.expander("📈 **DATA DOWNLOAD**", expanded=True):
+            ticker = st.text_input("Symbol", value="SPY", help="Enter stock ticker symbol")
             
-            col1, col2 = st.columns(2)
-            with col1:
-                start_date = st.date_input(
-                    "Start",
-                    value=datetime(2015, 1, 1)
-                )
-            with col2:
-                end_date = st.date_input(
-                    "End",
-                    value=datetime.now()
-                )
+            period_option = st.selectbox(
+                "Download Period",
+                ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max", "custom"],
+                index=6,  # Default to 2y
+                help="Select time period for data download"
+            )
+            
+            if period_option == "custom":
+                col1, col2 = st.columns(2)
+                with col1:
+                    start_date = st.date_input("Start Date", value=datetime(2020, 1, 1))
+                with col2:
+                    end_date = st.date_input("End Date", value=datetime.now())
+            else:
+                start_date = None
+                end_date = None
         
-        with st.expander("📊 **ANALYSIS PARAMETERS**", expanded=True):
+        # Period Range Settings
+        with st.expander("🎯 **PERIOD RANGE**", expanded=True):
+            st.markdown("Define exact period range to test")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                min_period = st.number_input("Min Period", value=5, min_value=2, max_value=500)
+            with col2:
+                max_period = st.number_input("Max Period", value=50, min_value=5, max_value=500)
+            with col3:
+                step_period = st.number_input("Step", value=5, min_value=1, max_value=50)
+            
+            # Generate periods list
+            periods_to_test = list(range(min_period, max_period + 1, step_period))
+            st.info(f"📊 Will test {len(periods_to_test)} periods: {periods_to_test[:5]}{'...' if len(periods_to_test) > 5 else ''}")
+        
+        # Analysis Settings
+        with st.expander("📊 **ANALYSIS SETTINGS**", expanded=True):
             return_days = st.select_slider(
-                "Return Days",
-                options=[1, 3, 5, 10, 20],
+                "Forward Return Days",
+                options=[1, 2, 3, 5, 7, 10, 14, 20, 30],
                 value=5
             )
             
             quantiles = st.slider(
-                "Percentiles",
+                "Number of Percentiles",
                 min_value=5,
                 max_value=20,
                 value=10,
                 step=5
             )
             
-            st.markdown("#### Period Testing")
-            period_preset = st.selectbox(
-                "Period Preset",
-                ["Fast (5 periods)", "Standard (8 periods)", "Comprehensive (12 periods)"]
+            min_spread = st.slider(
+                "Min Spread for Rules (%)",
+                min_value=0.5,
+                max_value=5.0,
+                value=1.0,
+                step=0.5
             )
             
-            if period_preset == "Fast (5 periods)":
-                periods_to_test = [5, 10, 20, 50, 100]
-            elif period_preset == "Standard (8 periods)":
-                periods_to_test = [5, 10, 14, 20, 30, 50, 100, 200]
-            else:
-                periods_to_test = [5, 10, 14, 20, 30, 40, 50, 75, 100, 150, 200, 250]
-            
-            st.info(f"Will test periods: {periods_to_test}")
+            max_p_value = st.slider(
+                "Max P-Value",
+                min_value=0.01,
+                max_value=0.30,
+                value=0.15,
+                step=0.01
+            )
         
-        with st.expander("📋 **RULE GENERATION**", expanded=True):
-            min_spread = st.slider("Min Spread (%)", 0.5, 5.0, 1.0, 0.5)
-            max_p_value = st.slider("Max P-Value", 0.01, 0.30, 0.15, 0.01)
-            top_rules = st.slider("Top Rules to Show", 5, 50, 20, 5)
+        # Indicator Selection
+        with st.expander("📐 **INDICATOR SELECTION**", expanded=True):
+            select_mode = st.radio(
+                "Selection Mode",
+                ["Quick Presets", "Categories", "All Indicators"]
+            )
+            
+            if select_mode == "Quick Presets":
+                preset = st.selectbox(
+                    "Choose Preset",
+                    ["Essential (30)", "Momentum Focus (50)", "Complete (100)", "Everything (200+)"]
+                )
+                
+                if preset == "Essential (30)":
+                    selected_categories = ["📈 Overlaps (17)", "💫 Momentum (30)"][:1]
+                elif preset == "Momentum Focus (50)":
+                    selected_categories = ["💫 Momentum (30)", "📉 Volatility (3)", "📊 Volume (3)"]
+                elif preset == "Complete (100)":
+                    selected_categories = list(TechnicalIndicators.CATEGORIES.keys())[:6]
+                else:
+                    selected_categories = ["ALL"]
+            
+            elif select_mode == "Categories":
+                selected_categories = st.multiselect(
+                    "Select Categories",
+                    list(TechnicalIndicators.CATEGORIES.keys()),
+                    default=["💫 Momentum (30)", "📈 Overlaps (17)"]
+                )
+            else:
+                selected_categories = ["ALL"]
+            
+            # Count indicators
+            if "ALL" in selected_categories:
+                indicator_count = TechnicalIndicators.get_total_count()
+            else:
+                indicator_count = sum(
+                    len(TechnicalIndicators.CATEGORIES[cat]) 
+                    for cat in selected_categories 
+                    if cat in TechnicalIndicators.CATEGORIES
+                )
+            
+            st.success(f"📊 {indicator_count} indicators × {len(periods_to_test)} periods = {indicator_count * len(periods_to_test)} calculations")
         
         st.markdown("---")
         
-        st.markdown("### 🚀 Run Analysis")
-        st.warning("⚠️ This will calculate ALL 200+ indicators with selected periods. May take 2-5 minutes.")
-        
+        # Run Analysis Button
         analyze_button = st.button(
-            "🔬 **ANALYZE ALL INDICATORS**",
+            "🚀 **ANALYZE**",
             use_container_width=True,
             type="primary"
         )
     
+    # Main Analysis
     if analyze_button:
-        with st.spinner('🔬 Calculating ALL indicators... This may take a few minutes...'):
+        with st.spinner('🔬 Running comprehensive analysis...'):
             # Calculate all indicators
-            returns_data, indicators, data = calculate_all_indicators(
+            returns_data, indicators, data, summary = calculate_all_indicators(
                 ticker,
-                start_date.strftime('%Y-%m-%d'),
-                end_date,
+                period_option,
+                start_date.strftime('%Y-%m-%d') if start_date else None,
+                end_date.strftime('%Y-%m-%d') if end_date else None,
                 quantiles,
                 return_days,
-                periods_to_test
+                periods_to_test,
+                selected_categories
             )
             
             if returns_data and indicators is not None and data is not None:
@@ -969,188 +997,137 @@ def main():
                 st.session_state.returns_data = returns_data
                 st.session_state.indicators = indicators
                 st.session_state.data = data
+                st.session_state.summary = summary
                 
-                # Generate trading rules from ALL indicators
-                with st.spinner('🎯 Generating trading rules from all indicators...'):
-                    st.session_state.trading_rules = generate_trading_rules_from_all(
-                        indicators, data, return_days, min_spread, max_p_value, top_rules
+                # Generate trading rules
+                with st.spinner('🎯 Generating trading rules...'):
+                    st.session_state.trading_rules = generate_trading_rules(
+                        indicators, data, return_days, min_spread, max_p_value, top_n=30
                     )
     
+    # Display Results
     if st.session_state.analysis_done:
         returns_data = st.session_state.returns_data
         indicators = st.session_state.indicators
         data = st.session_state.data
         trading_rules = st.session_state.trading_rules
+        summary = st.session_state.summary
         
-        # Summary statistics
-        st.markdown("""
-        <div class="calculation-status">
-            <h3>✅ Analysis Complete</h3>
-            <p>📊 <strong>{indicators}</strong> indicator configurations calculated</p>
-            <p>📈 <strong>{rules}</strong> trading rules generated</p>
-            <p>📅 Data range: <strong>{days}</strong> trading days</p>
-        </div>
-        """.format(
-            indicators=len(indicators.columns),
-            rules=len(trading_rules) if trading_rules else 0,
-            days=len(data)
-        ), unsafe_allow_html=True)
+        # Summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("📊 Indicators", summary['indicators_count'])
+        with col2:
+            st.metric("📈 Success Rate", f"{(summary['successful']/summary['total_attempted']*100):.1f}%")
+        with col3:
+            st.metric("📋 Trading Rules", len(trading_rules) if trading_rules else 0)
+        with col4:
+            st.metric("📅 Data Points", summary['data_points'])
         
-        # Tabs for different views
+        st.info(f"📆 Date Range: {summary['date_range']}")
+        
+        # Tabs
         tab1, tab2, tab3, tab4 = st.tabs([
-            "📈 **Individual Analysis**",
-            "📋 **Trading Rules**",
-            "🏆 **Top Performers**",
-            "📥 **Export Data**"
+            "📈 Individual Analysis",
+            "📋 Trading Rules",
+            "🏆 Top Performers",
+            "💾 Export"
         ])
         
         with tab1:
             st.markdown("### 📈 Individual Indicator Analysis")
-            st.info("Select any indicator from the dropdown to analyze its percentile behavior")
             
-            col1, col2, col3 = st.columns(3)
-            
+            col1, col2 = st.columns([2, 1])
             with col1:
-                # Group indicators by category for better organization
-                available_indicators = list(indicators.columns)
-                
-                # Create a selectbox with search
-                selected_ind = st.selectbox(
+                selected_indicator = st.selectbox(
                     "Select Indicator",
-                    available_indicators,
-                    help=f"Choose from {len(available_indicators)} calculated indicators"
+                    sorted(indicators.columns),
+                    help="Choose any calculated indicator"
                 )
-            
             with col2:
-                sel_return = st.selectbox(
-                    "Return Days for Analysis",
+                return_period = st.selectbox(
+                    "Return Period",
                     list(range(1, return_days + 1)),
                     index=min(4, return_days - 1) if return_days >= 5 else 0
                 )
             
-            with col3:
-                if selected_ind:
-                    st.metric("Data Points", f"{len(indicators[selected_ind].dropna()):,}")
-                    
-                    # Check if this indicator has a trading rule
-                    if trading_rules:
-                        rule_for_indicator = next((r for r in trading_rules if r['indicator_name'] == selected_ind), None)
-                        if rule_for_indicator:
-                            st.success("✅ Has Trading Rule")
-                        else:
-                            st.info("📊 No significant rule")
-            
-            if selected_ind:
-                fig = create_percentile_plots(
+            if selected_indicator:
+                # Check for trading rule
+                has_rule = any(r['indicator'] == selected_indicator for r in (trading_rules or []))
+                if has_rule:
+                    st.success(f"✅ Trading rule exists for {selected_indicator}")
+                
+                # Create plot
+                fig = create_percentile_plot(
                     indicators, returns_data, data,
-                    selected_ind, sel_return
+                    selected_indicator, return_period
                 )
+                
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
-                
-                # Show specific rule if exists
-                if trading_rules:
-                    rule_for_indicator = next((r for r in trading_rules if r['indicator_name'] == selected_ind), None)
-                    if rule_for_indicator:
-                        st.markdown("#### 📋 Trading Rule for This Indicator")
-                        
-                        if rule_for_indicator['strategy_type'] == 'MOMENTUM':
-                            badge = '<span class="rule-badge momentum-badge">🟠 MOMENTUM</span>'
-                        elif rule_for_indicator['strategy_type'] == 'MEAN REVERSION':
-                            badge = '<span class="rule-badge mean-reversion-badge">🔵 MEAN REVERSION</span>'
-                        else:
-                            badge = '<span class="rule-badge">⚪ SELECTIVE</span>'
-                        
-                        st.markdown(f"""
-                        <div class="trading-rule">
-                            <div class="rule-header">
-                                <h4>{rule_for_indicator['indicator_name']}</h4>
-                                <div>{badge}</div>
-                            </div>
-                            <p><strong>Entry:</strong> {rule_for_indicator['primary_signal']} → {rule_for_indicator['primary_action']}</p>
-                            <p><strong>Exit:</strong> {rule_for_indicator['secondary_signal']} → {rule_for_indicator['secondary_action']}</p>
-                            <p><strong>Expected Spread:</strong> {rule_for_indicator['expected_spread']:.2f}% | <strong>Confidence:</strong> {rule_for_indicator['confidence']:.1f}%</p>
-                        </div>
-                        """, unsafe_allow_html=True)
         
         with tab2:
-            st.markdown("### 📋 All Trading Rules")
+            st.markdown("### 📋 Trading Rules")
             
             if trading_rules:
-                # Summary metrics
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Total Rules", len(trading_rules))
-                with col2:
-                    momentum_rules = sum(1 for r in trading_rules if r['strategy_type'] == 'MOMENTUM')
-                    st.metric("Momentum", momentum_rules)
-                with col3:
-                    mean_rev_rules = sum(1 for r in trading_rules if r['strategy_type'] == 'MEAN REVERSION')
-                    st.metric("Mean Reversion", mean_rev_rules)
-                with col4:
-                    avg_spread = np.mean([r['expected_spread'] for r in trading_rules])
-                    st.metric("Avg Spread", f"{avg_spread:.2f}%")
+                # Filter options
+                filter_col1, filter_col2 = st.columns(2)
+                with filter_col1:
+                    strategy_filter = st.selectbox(
+                        "Filter by Strategy",
+                        ["All"] + list(set(r['strategy'] for r in trading_rules))
+                    )
+                with filter_col2:
+                    min_confidence = st.slider("Min Confidence %", 0, 100, 50)
                 
-                st.markdown("---")
+                # Filter rules
+                filtered_rules = [
+                    r for r in trading_rules 
+                    if (strategy_filter == "All" or r['strategy'] == strategy_filter)
+                    and r['confidence'] >= min_confidence
+                ]
                 
-                # Filter by strategy type
-                filter_type = st.selectbox(
-                    "Filter by Strategy Type",
-                    ["All", "MOMENTUM", "MEAN REVERSION", "SELECTIVE"]
-                )
-                
-                filtered_rules = trading_rules if filter_type == "All" else [r for r in trading_rules if r['strategy_type'] == filter_type]
+                st.info(f"Showing {len(filtered_rules)} rules")
                 
                 # Display rules
-                for rule in filtered_rules[:30]:
-                    if rule['strategy_type'] == 'MOMENTUM':
-                        strategy_badge = '<span class="rule-badge momentum-badge">🟠 MOMENTUM</span>'
-                    elif rule['strategy_type'] == 'MEAN REVERSION':
-                        strategy_badge = '<span class="rule-badge mean-reversion-badge">🔵 MEAN REVERSION</span>'
-                    else:
-                        strategy_badge = '<span class="rule-badge">⚪ SELECTIVE</span>'
+                for rule in filtered_rules[:20]:
+                    badge_class = {
+                        'MOMENTUM': 'momentum-badge',
+                        'MEAN REVERSION': 'mean-reversion-badge'
+                    }.get(rule['strategy'], 'momentum-badge')
                     
-                    confidence_badge = ''
-                    if rule['confidence'] >= 95:
-                        confidence_badge = '<span class="rule-badge strong-signal">STRONG</span>'
+                    badge_html = f'<span class="{badge_class}">{"🟠" if rule["strategy"] == "MOMENTUM" else "🔵"} {rule["strategy"]}</span>'
                     
                     st.markdown(f"""
                     <div class="trading-rule">
-                        <div class="rule-header">
-                            <h4>Rule #{rule['rank']}: {rule['indicator_name']}</h4>
-                            <div>{strategy_badge} {confidence_badge}</div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <h4>#{rule['rank']}: {rule['indicator']}</h4>
+                            {badge_html}
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div>
-                                <p><strong>Primary Signal:</strong></p>
-                                <p style="color: #4CAF50;">✓ {rule['primary_signal']}</p>
-                                <p style="margin-left: 20px;">→ <strong>{rule['primary_action']}</strong></p>
-                                
-                                <p style="margin-top: 10px;"><strong>Secondary Signal:</strong></p>
-                                <p style="color: #FF5252;">✗ {rule['secondary_signal']}</p>
-                                <p style="margin-left: 20px;">→ <strong>{rule['secondary_action']}</strong></p>
+                                <p><strong>Entry:</strong> {rule['entry']}</p>
+                                <p>→ <strong>{rule['action']}</strong></p>
+                                <p><strong>Exit:</strong> {rule['exit']}</p>
+                                <p>→ <strong>{rule['exit_action']}</strong></p>
                             </div>
                             <div>
-                                <p><strong>Performance Metrics:</strong></p>
-                                <ul style="list-style: none; padding: 0;">
-                                    <li>📊 Expected Spread: <strong>{rule['expected_spread']:.2f}%</strong></li>
-                                    <li>📈 Top Return: <strong>{rule['top_return']:.2f}%</strong></li>
-                                    <li>📉 Bottom Return: <strong>{rule['bottom_return']:.2f}%</strong></li>
-                                    <li>🎯 Confidence: <strong>{rule['confidence']:.1f}%</strong></li>
-                                    <li>📐 Sharpe Ratio: <strong>{rule['sharpe']:.3f}</strong></li>
-                                </ul>
+                                <p>📊 <strong>Spread:</strong> {rule['spread']:.2f}%</p>
+                                <p>📈 <strong>Top Return:</strong> {rule['top_return']:.2f}%</p>
+                                <p>📉 <strong>Bottom Return:</strong> {rule['bottom_return']:.2f}%</p>
+                                <p>🎯 <strong>Confidence:</strong> {rule['confidence']:.1f}%</p>
                             </div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
-                st.warning("No significant trading rules found. Try adjusting parameters.")
+                st.warning("No trading rules generated. Try adjusting parameters.")
         
         with tab3:
             st.markdown("### 🏆 Top Performing Indicators")
             
             # Create performance summary
-            performance_summary = []
+            performance = []
             for ind_col in indicators.columns:
                 if ind_col in returns_data:
                     ret_col = f'returns_{return_days}_days_mean'
@@ -1158,79 +1135,60 @@ def main():
                         values = returns_data[ind_col][ret_col]
                         if len(values) > 1:
                             spread = values.iloc[-1] - values.iloc[0]
-                            sharpe = abs(spread) / values.std() if values.std() > 0 else 0
-                            
-                            # Check if has rule
-                            has_rule = any(r['indicator_name'] == ind_col for r in (trading_rules or []))
-                            
-                            performance_summary.append({
+                            performance.append({
                                 'Indicator': ind_col,
                                 'Spread': spread,
-                                'Sharpe': sharpe,
-                                'Top_Return': values.iloc[-1],
-                                'Bottom_Return': values.iloc[0],
-                                'Has_Rule': '✅' if has_rule else '❌'
+                                'Top Return': values.iloc[-1],
+                                'Bottom Return': values.iloc[0],
+                                'Has Rule': '✅' if any(r['indicator'] == ind_col for r in (trading_rules or [])) else '❌'
                             })
             
-            if performance_summary:
-                perf_df = pd.DataFrame(performance_summary)
-                perf_df = perf_df.sort_values('Spread', ascending=False).head(50)
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Best Spread", f"{perf_df['Spread'].max():.2f}%")
-                with col2:
-                    st.metric("Best Sharpe", f"{perf_df['Sharpe'].max():.3f}")
-                with col3:
-                    with_rules = perf_df[perf_df['Has_Rule'] == '✅']
-                    st.metric("With Trading Rules", len(with_rules))
+            if performance:
+                perf_df = pd.DataFrame(performance)
+                perf_df = perf_df.sort_values('Spread', ascending=False).head(30)
                 
                 st.dataframe(
                     perf_df.style.format({
                         'Spread': '{:.2f}%',
-                        'Sharpe': '{:.3f}',
-                        'Top_Return': '{:.2f}%',
-                        'Bottom_Return': '{:.2f}%'
-                    }).background_gradient(cmap='RdYlGn', subset=['Spread', 'Sharpe']),
+                        'Top Return': '{:.2f}%',
+                        'Bottom Return': '{:.2f}%'
+                    }).background_gradient(subset=['Spread'], cmap='RdYlGn'),
                     use_container_width=True,
                     height=600
                 )
         
         with tab4:
-            st.markdown("### 📥 Export Results")
+            st.markdown("### 💾 Export Data")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown("#### Trading Rules")
                 if trading_rules:
                     rules_df = pd.DataFrame(trading_rules)
                     csv = rules_df.to_csv(index=False)
                     st.download_button(
-                        label="📥 Download Trading Rules (CSV)",
+                        "📥 Download Trading Rules (CSV)",
                         data=csv,
-                        file_name=f"{ticker}_trading_rules_{datetime.now().strftime('%Y%m%d')}.csv",
+                        file_name=f"{ticker}_rules_{datetime.now().strftime('%Y%m%d')}.csv",
                         mime="text/csv"
                     )
                 
-                st.markdown("#### Indicator Values")
-                if st.button("Prepare Indicator CSV"):
-                    indicators_csv = indicators.to_csv()
+                if performance:
+                    perf_csv = perf_df.to_csv(index=False)
                     st.download_button(
-                        label="📥 Download All Indicators (CSV)",
-                        data=indicators_csv,
-                        file_name=f"{ticker}_indicators_{datetime.now().strftime('%Y%m%d')}.csv",
+                        "📥 Download Performance (CSV)",
+                        data=perf_csv,
+                        file_name=f"{ticker}_performance_{datetime.now().strftime('%Y%m%d')}.csv",
                         mime="text/csv"
                     )
             
             with col2:
-                st.markdown("#### Performance Summary")
-                if performance_summary:
-                    perf_csv = perf_df.to_csv(index=False)
+                if st.button("Prepare Indicator Data"):
+                    indicators_csv = indicators.to_csv()
                     st.download_button(
-                        label="📥 Download Performance Summary (CSV)",
-                        data=perf_csv,
-                        file_name=f"{ticker}_performance_{datetime.now().strftime('%Y%m%d')}.csv",
+                        "📥 Download All Indicators (CSV)",
+                        data=indicators_csv,
+                        file_name=f"{ticker}_indicators_{datetime.now().strftime('%Y%m%d')}.csv",
                         mime="text/csv"
                     )
 
