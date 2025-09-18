@@ -327,11 +327,19 @@ class TechnicalIndicators:
     
     @classmethod
     def calculate_indicator(cls, indicator_name, high, low, close, volume, open_prices, period):
-        """Calcula cualquier indicador de TALib"""
+        """Calcula cualquier indicador de TALib con mejor manejo de errores"""
         try:
+            # Skip if not enough data for the period
+            if period > 0 and len(close) < period * 2:
+                return None
+            
             if indicator_name.startswith('CDL'):
                 func = getattr(talib, indicator_name)
-                return func(open_prices, high, low, close)
+                result = func(open_prices, high, low, close)
+                # Check if pattern found anything
+                if result is not None and np.any(result != 0):
+                    return result
+                return None
             
             if indicator_name not in cls.INDICATOR_CONFIG:
                 if hasattr(talib, indicator_name):
@@ -372,11 +380,18 @@ class TechnicalIndicators:
             result = func(*args, **kwargs)
             
             if isinstance(result, tuple):
-                return result[0]
+                result = result[0]
             
-            return result
+            # Check if result is valid (not all NaN)
+            if result is not None and not np.all(np.isnan(result)):
+                # Also check if there's enough variation
+                if np.std(result[~np.isnan(result)]) > 1e-10:
+                    return result
             
-        except Exception:
+            return None
+            
+        except Exception as e:
+            # Silent fail - too many indicators to show each error
             return None
     
     @classmethod
@@ -577,7 +592,7 @@ def analyze_indicator_for_rules(indicator_values, returns, quantiles=10):
     except Exception:
         return None
 
-def generate_trading_rules_from_all(indicators, data, return_days=5, min_spread=2.0, max_p_value=0.1, top_n=20):
+def generate_trading_rules_from_all(indicators, data, return_days=5, min_spread=1.0, max_p_value=0.2, top_n=20):
     """Genera reglas de trading de TODOS los indicadores calculados"""
     
     returns = data['Close'].pct_change(return_days).shift(-return_days) * 100
@@ -587,13 +602,15 @@ def generate_trading_rules_from_all(indicators, data, return_days=5, min_spread=
     progress_bar = st.progress(0)
     total_indicators = len(indicators.columns)
     
+    st.info(f"Analyzing {total_indicators} indicators for trading patterns...")
+    
     for idx, indicator_col in enumerate(indicators.columns):
         status_text.text(f"Analyzing {indicator_col} for trading rules... ({idx+1}/{total_indicators})")
         
         indicator_values = indicators[indicator_col].values
         metrics = analyze_indicator_for_rules(indicator_values, returns.values, quantiles=10)
         
-        if metrics and metrics['min_samples'] >= 10:
+        if metrics and metrics['min_samples'] >= 5:  # Reduced from 10 to 5
             metrics['indicator_name'] = indicator_col
             all_results.append(metrics)
         
@@ -602,7 +619,10 @@ def generate_trading_rules_from_all(indicators, data, return_days=5, min_spread=
     progress_bar.empty()
     status_text.empty()
     
+    st.info(f"Found {len(all_results)} indicators with valid patterns")
+    
     if not all_results:
+        st.warning("No indicators passed the initial analysis. Trying with relaxed parameters...")
         return []
     
     # Convert to DataFrame and filter
@@ -613,11 +633,21 @@ def generate_trading_rules_from_all(indicators, data, return_days=5, min_spread=
         (1 / (results_df['p_value'] + 0.001)) * 0.1
     )
     
-    # Filter quality signals
+    # Try with original parameters first
     quality_signals = results_df[
         (abs(results_df['spread']) >= min_spread) & 
         (results_df['p_value'] <= max_p_value)
-    ].nlargest(top_n, 'score')
+    ]
+    
+    # If not enough rules, relax criteria
+    if len(quality_signals) < 5:
+        st.warning(f"Only {len(quality_signals)} rules with strict criteria. Relaxing parameters...")
+        quality_signals = results_df[abs(results_df['spread']) >= 0.5]  # Just require positive spread
+    
+    # Take top N by score
+    quality_signals = quality_signals.nlargest(min(top_n, len(quality_signals)), 'score')
+    
+    st.success(f"Generating {len(quality_signals)} trading rules")
     
     # Generate rules
     rules = []
@@ -907,9 +937,9 @@ def main():
             st.info(f"Will test periods: {periods_to_test}")
         
         with st.expander("📋 **RULE GENERATION**", expanded=True):
-            min_spread = st.slider("Min Spread (%)", 1.0, 5.0, 2.0, 0.5)
-            max_p_value = st.slider("Max P-Value", 0.01, 0.20, 0.10, 0.01)
-            top_rules = st.slider("Top Rules to Show", 5, 30, 20, 5)
+            min_spread = st.slider("Min Spread (%)", 0.5, 5.0, 1.0, 0.5)
+            max_p_value = st.slider("Max P-Value", 0.01, 0.30, 0.15, 0.01)
+            top_rules = st.slider("Top Rules to Show", 5, 50, 20, 5)
         
         st.markdown("---")
         
