@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 import warnings
 from typing import Dict, List, Tuple, Optional
 from scipy import stats
-from scipy.stats import spearmanr, gaussian_kde
+from scipy.stats import gaussian_kde
+import itertools
 
 warnings.filterwarnings('ignore')
 
@@ -164,35 +165,11 @@ st.markdown("""
         letter-spacing: 0.05em;
     }
     
-    .stSelectbox > div > div, .stTextInput > div > div > input, .stNumberInput > div > div > input {
-        background: #1a1a1a !important;
-        color: #f0f0f0 !important;
-        border: 1px solid #404040 !important;
-        border-radius: 6px !important;
-    }
-    
-    .stProgress > div > div > div > div {
-        background: linear-gradient(90deg, #606060 0%, #808080 100%);
-    }
-    
-    .stProgress > div > div {
-        background: #2a2a2a;
-    }
-    
     hr {
         border: none;
         height: 1px;
         background: linear-gradient(90deg, transparent, #404040, transparent);
         margin: 2.5rem 0;
-    }
-    
-    .dataframe {
-        font-size: 0.85rem !important;
-    }
-    
-    .js-plotly-plot {
-        border-radius: 8px;
-        overflow: hidden;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -363,46 +340,28 @@ class TechnicalIndicators:
     
     # Lista completa de indicadores
     ALL_INDICATORS = [
-        # Estudios de Superposición (17)
         'BBANDS', 'DEMA', 'EMA', 'HT_TRENDLINE', 'KAMA', 'MA',
         'MAMA', 'MIDPOINT', 'MIDPRICE', 'SAR', 'SAREXT',
         'SMA', 'T3', 'TEMA', 'TRIMA', 'WMA',
-        
-        # Momentum (31)
         'ADX', 'ADXR', 'APO', 'AROON', 'AROONOSC', 'BOP',
         'CCI', 'CMO', 'DX', 'MACD', 'MACDEXT', 'MACDFIX',
         'MFI', 'MINUS_DI', 'MINUS_DM', 'MOM', 'PLUS_DI',
         'PLUS_DM', 'PPO', 'ROC', 'ROCP', 'ROCR', 'ROCR100',
         'RSI', 'STOCH', 'STOCHF', 'STOCHRSI', 'TRIX',
         'ULTOSC', 'WILLR',
-        
-        # Volumen (3)
         'AD', 'ADOSC', 'OBV',
-        
-        # Volatilidad (3)
         'ATR', 'NATR', 'TRANGE',
-        
-        # Ciclos (5)
         'HT_DCPERIOD', 'HT_DCPHASE', 'HT_PHASOR', 'HT_SINE', 'HT_TRENDMODE',
-        
-        # Estadísticas (9)
         'BETA', 'CORREL', 'LINEARREG', 'LINEARREG_ANGLE',
         'LINEARREG_INTERCEPT', 'LINEARREG_SLOPE', 'STDDEV', 'TSF', 'VAR',
-        
-        # Transformaciones Matemáticas (15)
         'ACOS', 'ASIN', 'ATAN', 'CEIL', 'COS', 'COSH',
         'EXP', 'FLOOR', 'LN', 'LOG10', 'SIN', 'SINH',
         'SQRT', 'TAN', 'TANH',
-        
-        # Operadores Matemáticos (11)
         'ADD', 'DIV', 'MAX', 'MAXINDEX', 'MIN', 'MININDEX',
         'MINMAX', 'MINMAXINDEX', 'MULT', 'SUB', 'SUM',
-        
-        # Transformaciones de Precio (4)
         'AVGPRICE', 'MEDPRICE', 'TYPPRICE', 'WCLPRICE',
     ]
     
-    # Patrones de velas (61)
     CANDLE_PATTERNS = [
         'CDL2CROWS', 'CDL3BLACKCROWS', 'CDL3INSIDE', 'CDL3LINESTRIKE', 'CDL3OUTSIDE',
         'CDL3STARSINSOUTH', 'CDL3WHITESOLDIERS', 'CDLABANDONEDBABY', 'CDLADVANCEBLOCK',
@@ -447,7 +406,6 @@ class TechnicalIndicators:
     
     @classmethod
     def needs_period(cls, indicator_name):
-        """Verificar si el indicador necesita parámetro de periodo"""
         no_period = [
             'HT_TRENDLINE', 'BOP', 'MACDFIX', 'AD', 'OBV', 'TRANGE',
             'SAR', 'SAREXT', 'MAMA',
@@ -463,14 +421,11 @@ class TechnicalIndicators:
     
     @classmethod
     def calculate_indicator(cls, indicator_name, high, low, close, volume, open_prices, period):
-        """Calcular cualquier indicador con manejo de errores"""
         try:
             result = cls.calculate_single_indicator(indicator_name, high, low, close, volume, open_prices, period)
-            
             if result is not None:
                 if not np.all(np.isnan(result)):
                     return result
-            
             return None
         except:
             return None
@@ -479,19 +434,305 @@ class TechnicalIndicators:
     def get_total_count(cls):
         return len(cls.ALL_INDICATORS) + len(cls.CANDLE_PATTERNS)
 
+# ===================== MOTOR DE TRADING MEJORADO =====================
+class ImprovedTradingEngine:
+    """Motor mejorado de trading con evaluación IS/OOS completa"""
+    
+    @staticmethod
+    def generate_rules_batch(indicators_df: pd.DataFrame, 
+                            percentile_thresholds: List[int] = [10, 25, 50, 75, 90],
+                            max_indicators: int = None) -> List[Dict]:
+        """Generación optimizada de reglas usando operaciones vectorizadas"""
+        rules = []
+        columns_to_use = indicators_df.columns[:max_indicators] if max_indicators else indicators_df.columns
+        
+        percentiles_dict = {}
+        for col in columns_to_use:
+            data = indicators_df[col].dropna()
+            if len(data) >= 100:
+                percentiles_dict[col] = {
+                    p: data.quantile(p/100) for p in percentile_thresholds
+                }
+        
+        for col, percentiles in percentiles_dict.items():
+            for p, value in percentiles.items():
+                if p <= 50:
+                    rules.append({
+                        'name': f'{col}_P{p}_BUY',
+                        'condition': f'({col} <= {value:.6f})',
+                        'indicator': col,
+                        'type': 'BUY',
+                        'percentile': p,
+                        'threshold': value,
+                        'operator': '<='
+                    })
+                
+                if p >= 50:
+                    rules.append({
+                        'name': f'{col}_P{p}_SELL',
+                        'condition': f'({col} >= {value:.6f})',
+                        'indicator': col,
+                        'type': 'SELL',
+                        'percentile': p,
+                        'threshold': value,
+                        'operator': '>='
+                    })
+        
+        return rules
+    
+    @staticmethod
+    def evaluate_rules_vectorized(rules: List[Dict], 
+                                 indicators_df: pd.DataFrame,
+                                 data_df: pd.DataFrame,
+                                 return_periods: List[int],
+                                 min_signals: int = 30,
+                                 batch_size: int = 100) -> pd.DataFrame:
+        """Evaluación vectorizada de reglas"""
+        results = []
+        total_rules = len(rules)
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        returns_dict = {}
+        for period in return_periods:
+            col_name = f'retornos_{period}_dias'
+            if col_name in data_df.columns:
+                returns_dict[period] = data_df[col_name].values
+        
+        for batch_start in range(0, total_rules, batch_size):
+            batch_end = min(batch_start + batch_size, total_rules)
+            batch_rules = rules[batch_start:batch_end]
+            
+            progress = (batch_start + batch_size) / total_rules
+            progress_bar.progress(min(progress, 1.0))
+            status_text.text(f"Procesando reglas {batch_start+1} a {batch_end} de {total_rules}")
+            
+            batch_results = ImprovedTradingEngine._evaluate_batch(
+                batch_rules, indicators_df, returns_dict, min_signals
+            )
+            results.extend(batch_results)
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        if results:
+            results_df = pd.DataFrame(results)
+            sharpe_cols = [col for col in results_df.columns if 'sharpe' in col]
+            if sharpe_cols:
+                results_df['avg_sharpe'] = results_df[sharpe_cols].mean(axis=1)
+                results_df = results_df.sort_values('avg_sharpe', ascending=False)
+            return results_df
+        
+        return pd.DataFrame()
+    
+    @staticmethod
+    def _evaluate_batch(batch_rules: List[Dict], 
+                       indicators_df: pd.DataFrame,
+                       returns_dict: Dict[int, np.ndarray],
+                       min_signals: int) -> List[Dict]:
+        """Evaluar un batch de reglas"""
+        batch_results = []
+        
+        for rule in batch_rules:
+            try:
+                indicator_values = indicators_df[rule['indicator']].values
+                threshold = rule['threshold']
+                
+                if rule['operator'] == '<=':
+                    mask = indicator_values <= threshold
+                elif rule['operator'] == '>=':
+                    mask = indicator_values >= threshold
+                else:
+                    mask = indicator_values == threshold
+                
+                num_signals = np.sum(mask)
+                if num_signals < min_signals:
+                    continue
+                
+                metrics = {
+                    'rule_name': rule['name'],
+                    'type': rule['type'],
+                    'condition': rule['condition'],
+                    'num_signals': num_signals,
+                    'signal_percentage': (num_signals / len(mask)) * 100
+                }
+                
+                for period, returns in returns_dict.items():
+                    returns_when_signal = returns[mask]
+                    
+                    if rule['type'] == 'SELL':
+                        returns_when_signal = -returns_when_signal
+                    
+                    ret_mean = np.nanmean(returns_when_signal)
+                    ret_std = np.nanstd(returns_when_signal)
+                    
+                    metrics[f'return_{period}d_mean'] = ret_mean
+                    metrics[f'return_{period}d_std'] = ret_std
+                    metrics[f'return_{period}d_sharpe'] = ret_mean / (ret_std + 1e-8)
+                    metrics[f'return_{period}d_win_rate'] = (returns_when_signal > 0).mean() * 100
+                
+                batch_results.append(metrics)
+                
+            except Exception:
+                continue
+        
+        return batch_results
+    
+    @staticmethod
+    def combine_non_correlated_rules(results_df: pd.DataFrame,
+                                    indicators_df: pd.DataFrame,
+                                    max_correlation: float = 0.5,
+                                    top_n: int = 10) -> List[Dict]:
+        """Seleccionar reglas no correlacionadas"""
+        if len(results_df) == 0:
+            return []
+        
+        top_rules = results_df.head(min(top_n * 3, len(results_df)))
+        selected_rules = []
+        selected_indicators = []
+        
+        for _, row in top_rules.iterrows():
+            indicator = row['rule_name'].rsplit('_P', 1)[0]
+            
+            is_duplicate = False
+            for selected_ind in selected_indicators:
+                if indicator == selected_ind:
+                    is_duplicate = True
+                    break
+                
+                if indicator in indicators_df.columns and selected_ind in indicators_df.columns:
+                    corr = indicators_df[indicator].corr(indicators_df[selected_ind])
+                    if abs(corr) > max_correlation:
+                        is_duplicate = True
+                        break
+            
+            if not is_duplicate:
+                selected_rules.append({
+                    'name': row['rule_name'],
+                    'condition': row['condition'],
+                    'type': row['type'],
+                    'sharpe': row.get('avg_sharpe', 0)
+                })
+                selected_indicators.append(indicator)
+                
+                if len(selected_rules) >= top_n:
+                    break
+        
+        return selected_rules
+    
+    @staticmethod
+    def comprehensive_backtest(rules: List[Dict],
+                             indicators_df: pd.DataFrame,
+                             prices_df: pd.DataFrame,
+                             initial_capital: float = 10000,
+                             commission: float = 0.001) -> Tuple[pd.DataFrame, Dict]:
+        """Backtest completo con métricas profesionales"""
+        portfolio = pd.DataFrame(index=prices_df.index)
+        portfolio['price'] = prices_df['Close']
+        portfolio['returns'] = portfolio['price'].pct_change()
+        
+        # Crear señales
+        buy_signals = np.zeros(len(portfolio))
+        sell_signals = np.zeros(len(portfolio))
+        
+        for rule in rules:
+            try:
+                mask = indicators_df.eval(rule['condition']).values
+                if rule['type'] == 'BUY':
+                    buy_signals += mask.astype(int)
+                else:
+                    sell_signals += mask.astype(int)
+            except:
+                continue
+        
+        portfolio['signal'] = np.sign(buy_signals - sell_signals)
+        portfolio['position'] = portfolio['signal'].replace(0, np.nan).fillna(method='ffill').fillna(0)
+        
+        # Calcular trades
+        portfolio['trades'] = portfolio['position'].diff().fillna(0)
+        portfolio['commission_cost'] = np.abs(portfolio['trades']) * commission
+        
+        # Retornos ajustados
+        portfolio['strategy_returns'] = portfolio['position'].shift(1) * portfolio['returns'] - portfolio['commission_cost']
+        portfolio['cumulative_returns'] = (1 + portfolio['strategy_returns'].fillna(0)).cumprod()
+        portfolio['cumulative_market'] = (1 + portfolio['returns'].fillna(0)).cumprod()
+        portfolio['equity'] = initial_capital * portfolio['cumulative_returns']
+        
+        # Drawdown
+        portfolio['peak'] = portfolio['equity'].cummax()
+        portfolio['drawdown'] = (portfolio['equity'] / portfolio['peak'] - 1) * 100
+        
+        # Calcular métricas
+        metrics = ImprovedTradingEngine.calculate_performance_metrics(portfolio, initial_capital)
+        
+        return portfolio, metrics
+    
+    @staticmethod
+    def calculate_performance_metrics(portfolio: pd.DataFrame, initial_capital: float) -> Dict:
+        """Calcular métricas profesionales de rendimiento"""
+        
+        # Retornos
+        total_return = (portfolio['equity'].iloc[-1] / initial_capital - 1) * 100
+        market_return = (portfolio['cumulative_market'].iloc[-1] - 1) * 100
+        
+        # Retornos anualizados (asumiendo datos diarios)
+        days = len(portfolio)
+        years = days / 252
+        annualized_return = ((portfolio['equity'].iloc[-1] / initial_capital) ** (1/years) - 1) * 100 if years > 0 else 0
+        
+        # Sharpe Ratio
+        daily_returns = portfolio['strategy_returns'].dropna()
+        sharpe = daily_returns.mean() / (daily_returns.std() + 1e-8) * np.sqrt(252)
+        
+        # Sortino Ratio
+        downside_returns = daily_returns[daily_returns < 0]
+        sortino = daily_returns.mean() / (downside_returns.std() + 1e-8) * np.sqrt(252) if len(downside_returns) > 0 else 0
+        
+        # Maximum Drawdown
+        max_dd = portfolio['drawdown'].min()
+        
+        # Profit Factor
+        winning_trades = daily_returns[daily_returns > 0].sum()
+        losing_trades = abs(daily_returns[daily_returns < 0].sum())
+        profit_factor = winning_trades / losing_trades if losing_trades > 0 else np.inf
+        
+        # Win Rate
+        winning_days = (daily_returns > 0).sum()
+        total_days = len(daily_returns[daily_returns != 0])
+        win_rate = (winning_days / max(total_days, 1)) * 100
+        
+        # Trades
+        num_trades = (portfolio['trades'] != 0).sum()
+        
+        # Calmar Ratio
+        calmar = annualized_return / abs(max_dd) if max_dd != 0 else 0
+        
+        return {
+            'total_return': total_return,
+            'annualized_return': annualized_return,
+            'market_return': market_return,
+            'excess_return': total_return - market_return,
+            'sharpe_ratio': sharpe,
+            'sortino_ratio': sortino,
+            'max_drawdown': max_dd,
+            'profit_factor': profit_factor,
+            'win_rate': win_rate,
+            'num_trades': num_trades,
+            'calmar_ratio': calmar,
+            'final_equity': portfolio['equity'].iloc[-1]
+        }
+
 # ===================== FUNCIONES DE CÁLCULO =====================
 @st.cache_data
 def download_data(ticker: str, period: str) -> Optional[pd.DataFrame]:
     """Descargar datos históricos"""
     try:
         data = yf.download(ticker, period=period, progress=False, auto_adjust=True, multi_level_index=False)
-        
         if data.empty:
             st.error(f"No se encontraron datos para {ticker}")
             return None
-        
         return data
-        
     except Exception as e:
         st.error(f"Error descargando datos: {str(e)}")
         return None
@@ -506,11 +747,9 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, min_retur
     if data is None:
         return None, None, None, None
     
-    # Calcular retornos para el rango de días
     for i in range(min_return_days, max_return_days + 1):
         data[f'retornos_{i}_dias'] = data['Close'].pct_change(i) * 100
     
-    # Preparar datos
     high = data['High'].values
     low = data['Low'].values
     close = data['Close'].values
@@ -519,9 +758,7 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, min_retur
     
     indicators = pd.DataFrame(index=data.index)
     
-    # Obtener indicadores a calcular
     indicators_to_calc = []
-    
     if "TODO" in selected_categories:
         indicators_to_calc = TechnicalIndicators.ALL_INDICATORS + TechnicalIndicators.CANDLE_PATTERNS
     else:
@@ -531,7 +768,6 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, min_retur
     
     indicators_to_calc = list(set(indicators_to_calc))
     
-    # Contar cálculos
     total_calculations = sum(
         len(periods_to_test) if TechnicalIndicators.needs_period(ind) else 1 
         for ind in indicators_to_calc
@@ -542,7 +778,6 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, min_retur
     calculation_counter = 0
     successful = 0
     
-    # Calcular indicadores
     for indicator_name in indicators_to_calc:
         if TechnicalIndicators.needs_period(indicator_name):
             for period in periods_to_test:
@@ -575,28 +810,21 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, min_retur
     progress_bar.empty()
     status_text.empty()
     
-    # Eliminar columnas completamente vacías
     indicators = indicators.dropna(axis=1, how='all')
     
-    # Calcular análisis de percentiles
     returns_data = {}
-    
     for indicator_col in indicators.columns:
         try:
             returns_data[indicator_col] = {}
-            
             for i in range(min_return_days, max_return_days + 1):
                 temp_df = pd.DataFrame({'indicator': indicators[indicator_col]})
-                
                 ret_col = f'retornos_{i}_dias'
                 if ret_col in data.columns:
                     temp_df[ret_col] = data[ret_col]
-                
                 temp_df = temp_df.dropna()
                 
                 if len(temp_df) >= quantiles * 2:
                     temp_df['quantile'] = pd.qcut(temp_df['indicator'], q=quantiles, duplicates='drop')
-                    
                     grouped = temp_df.groupby('quantile')[ret_col].agg(['mean', 'std', 'count'])
                     returns_data[indicator_col][f'retornos_{i}_dias_mean'] = grouped['mean']
                     returns_data[indicator_col][f'retornos_{i}_dias_std'] = grouped['std']
@@ -623,7 +851,7 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, min_retur
     return returns_data, indicators, data, summary
 
 def create_percentile_plot(indicators, returns_data, data, indicator_name, return_days, quantiles=10):
-    """Crear gráficos de análisis mejorados con tema oscuro"""
+    """Crear gráficos de análisis mejorados"""
     
     if indicator_name not in indicators.columns or indicator_name not in returns_data:
         return None
@@ -632,7 +860,7 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
         rows=2, cols=2,
         subplot_titles=(
             '<b>Distribución y Estadísticas</b>', '<b>Retornos por Percentil</b>',
-            '<b>Correlación Móvil (126 días)</b>', '<b>Análisis de Dispersión con Densidad</b>'
+            '<b>Correlación Móvil (126 días)</b>', '<b>Análisis de Dispersión</b>'
         ),
         specs=[
             [{"type": "histogram"}, {"type": "bar"}],
@@ -642,22 +870,17 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
         horizontal_spacing=0.15
     )
     
-    # Paleta de colores
     gradient_colors = ['#FF6B6B', '#FE8C68', '#FEAA68', '#FEC868', '#FFE66D', 
                        '#C7E66D', '#8FE66D', '#5FE668', '#4FC668', '#51CF66']
     
-    # 1. DISTRIBUCIÓN MEJORADA CON KDE
     hist_data = indicators[indicator_name].dropna()
     
     if len(hist_data) > 0:
-        # Calcular estadísticas
         mean_val = hist_data.mean()
         median_val = hist_data.median()
-        std_val = hist_data.std()
         q25 = hist_data.quantile(0.25)
         q75 = hist_data.quantile(0.75)
         
-        # Histograma con más bins
         fig.add_trace(
             go.Histogram(
                 x=hist_data,
@@ -673,7 +896,6 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
             row=1, col=1
         )
         
-        # Añadir KDE
         kde = gaussian_kde(hist_data.values)
         x_range = np.linspace(hist_data.min(), hist_data.max(), 200)
         kde_values = kde(x_range)
@@ -690,31 +912,9 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
             row=1, col=1
         )
         
-        # Líneas verticales para estadísticas
-        fig.add_vline(
-            x=mean_val, 
-            line=dict(color='#51CF66', width=2, dash='solid'),
-            row=1, col=1
-        )
+        fig.add_vline(x=mean_val, line=dict(color='#51CF66', width=2, dash='solid'), row=1, col=1)
+        fig.add_vline(x=median_val, line=dict(color='#FF6B6B', width=2, dash='dash'), row=1, col=1)
         
-        fig.add_vline(
-            x=median_val, 
-            line=dict(color='#FF6B6B', width=2, dash='dash'),
-            row=1, col=1
-        )
-        
-        fig.add_vline(
-            x=q25, 
-            line=dict(color='rgba(128, 128, 128, 0.5)', width=1, dash='dot'),
-            row=1, col=1
-        )
-        fig.add_vline(
-            x=q75, 
-            line=dict(color='rgba(128, 128, 128, 0.5)', width=1, dash='dot'),
-            row=1, col=1
-        )
-        
-        # Anotaciones mejoradas
         fig.add_annotation(
             x=mean_val,
             y=max(kde_values) * 1.1,
@@ -745,18 +945,15 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
             row=1, col=1
         )
     
-    # 2. RETORNOS POR PERCENTIL MEJORADOS
     returns_col = f'retornos_{return_days}_dias_mean'
     if returns_col in returns_data[indicator_name]:
         returns_values = returns_data[indicator_name][returns_col]
         x_labels = [f'P{i+1}' for i in range(len(returns_values))]
         
-        # Colores basados en valores
         max_abs = max(abs(returns_values.max()), abs(returns_values.min())) if returns_values.max() != returns_values.min() else 1
         normalized_values = [(val + max_abs) / (2 * max_abs) for val in returns_values]
         colors = [gradient_colors[min(int(norm * (len(gradient_colors) - 1)), len(gradient_colors)-1)] for norm in normalized_values]
         
-        # Barras de error si están disponibles
         std_col = f'retornos_{return_days}_dias_std'
         error_y = None
         if std_col in returns_data[indicator_name]:
@@ -785,24 +982,7 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
             ),
             row=1, col=2
         )
-        
-        # Línea de tendencia
-        x_numeric = list(range(len(returns_values)))
-        z = np.polyfit(x_numeric, returns_values, 1)
-        p = np.poly1d(z)
-        
-        fig.add_trace(
-            go.Scatter(
-                x=x_labels,
-                y=p(x_numeric),
-                mode='lines',
-                line=dict(color='rgba(255, 255, 255, 0.6)', width=2, dash='dash'),
-                showlegend=False
-            ),
-            row=1, col=2
-        )
     
-    # 3. CORRELACIÓN MÓVIL MEJORADA
     if f'retornos_{return_days}_dias' in data.columns:
         common_idx = data.index.intersection(indicators[indicator_name].index)
         if len(common_idx) > 126:
@@ -811,7 +991,6 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
             
             rolling_corr = aligned_returns.rolling(126).corr(aligned_indicator).dropna()
             
-            # Relleno para valores positivos
             fig.add_trace(
                 go.Scatter(
                     x=rolling_corr.index,
@@ -825,7 +1004,6 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                 row=2, col=1
             )
             
-            # Relleno para valores negativos
             fig.add_trace(
                 go.Scatter(
                     x=rolling_corr.index,
@@ -839,7 +1017,6 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                 row=2, col=1
             )
             
-            # Línea principal
             fig.add_trace(
                 go.Scatter(
                     x=rolling_corr.index,
@@ -851,17 +1028,8 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                 row=2, col=1
             )
             
-            # Líneas de referencia
             fig.add_hline(y=0, line=dict(color='rgba(255, 255, 255, 0.3)', width=1), row=2, col=1)
-            
-            for y, alpha in [(0.5, 0.05), (-0.5, 0.05)]:
-                fig.add_hline(
-                    y=y,
-                    line=dict(color=f'rgba(255, 255, 255, {alpha})', width=1, dash='dot'),
-                    row=2, col=1
-                )
     
-    # 4. GRÁFICO DE DISPERSIÓN MEJORADO CON COLORES MÁS BRILLANTES
     if f'retornos_{return_days}_dias' in data.columns:
         common_idx = data.index.intersection(indicators[indicator_name].index)
         if len(common_idx) > 0:
@@ -873,14 +1041,12 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                 x_clean = x_data[mask]
                 y_clean = y_data[mask]
                 
-                # Calcular densidad de puntos
                 try:
                     xy = np.vstack([x_clean, y_clean])
                     density = gaussian_kde(xy)(xy)
                 except:
                     density = y_clean
                 
-                # Colores más brillantes para mejor visibilidad
                 fig.add_trace(
                     go.Scattergl(
                         x=x_clean,
@@ -890,12 +1056,12 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                             size=4,
                             color=density,
                             colorscale=[
-                                [0, '#2E3440'],     # Gris oscuro
-                                [0.2, '#5E81AC'],   # Azul
-                                [0.4, '#81A1C1'],   # Azul claro
-                                [0.6, '#88C0D0'],   # Cian
-                                [0.8, '#A3BE8C'],   # Verde claro
-                                [1, '#EBCB8B']      # Amarillo
+                                [0, '#2E3440'],
+                                [0.2, '#5E81AC'],
+                                [0.4, '#81A1C1'],
+                                [0.6, '#88C0D0'],
+                                [0.8, '#A3BE8C'],
+                                [1, '#EBCB8B']
                             ],
                             opacity=0.8,
                             line=dict(width=0),
@@ -919,7 +1085,6 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                     row=2, col=2
                 )
                 
-                # Línea de regresión
                 z = np.polyfit(x_clean, y_clean, 1)
                 p = np.poly1d(z)
                 x_line = np.linspace(x_clean.min(), x_clean.max(), 100)
@@ -934,16 +1099,12 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                     ),
                     row=2, col=2
                 )
-                
-                # Línea horizontal en cero
-                fig.add_hline(y=0, line=dict(color='rgba(255, 255, 255, 0.2)', width=1), row=2, col=2)
     
-    # ACTUALIZAR DISEÑO
     fig.update_layout(
         template="plotly_dark",
         height=800,
         title={
-            'text': f"<b>{indicator_name}</b> <span style='font-size:14px; color:#808080;'>| Análisis de Retornos a {return_days} Días</span>",
+            'text': f"<b>{indicator_name}</b> | Análisis de Retornos a {return_days} Días",
             'font': {'size': 24, 'color': '#f0f0f0', 'family': 'Inter'},
             'x': 0.5,
             'xanchor': 'center'
@@ -955,7 +1116,6 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
         margin=dict(t=80, b=60, l=60, r=120)
     )
     
-    # Actualizar estilo de ejes
     fig.update_xaxes(
         gridcolor='#30363D',
         showgrid=True,
@@ -971,29 +1131,17 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
         tickfont=dict(size=10, color='#C9D1D9')
     )
     
-    # Etiquetas específicas de ejes
-    fig.update_xaxes(title_text="<b>Valor</b>", row=1, col=1, title_font=dict(size=11))
-    fig.update_yaxes(title_text="<b>Densidad</b>", row=1, col=1, title_font=dict(size=11))
-    fig.update_xaxes(title_text="<b>Percentil</b>", row=1, col=2, title_font=dict(size=11))
-    fig.update_yaxes(title_text=f"<b>Retornos ({return_days}d) %</b>", row=1, col=2, title_font=dict(size=11))
-    fig.update_xaxes(title_text="<b>Fecha</b>", row=2, col=1, title_font=dict(size=11))
-    fig.update_yaxes(title_text="<b>Correlación</b>", row=2, col=1, title_font=dict(size=11))
-    fig.update_xaxes(title_text="<b>Valor del Indicador</b>", row=2, col=2, title_font=dict(size=11))
-    fig.update_yaxes(title_text=f"<b>Retornos ({return_days}d) %</b>", row=2, col=2, title_font=dict(size=11))
-    
     return fig
 
 # ===================== APLICACIÓN PRINCIPAL =====================
 def main():
-    # Encabezado
     st.markdown("""
         <h1 class='main-header'>Plataforma de Análisis Cuantitativo</h1>
         <p class='sub-header'>
-            {total} INDICADORES TÉCNICOS · PRUEBA MULTI-PERIODO · ANÁLISIS PERCENTIL
+            {total} INDICADORES TÉCNICOS · BACKTESTING IS/OOS · ANÁLISIS PERCENTIL
         </p>
     """.format(total=TechnicalIndicators.get_total_count()), unsafe_allow_html=True)
     
-    # Inicializar estado de sesión
     if 'analysis_done' not in st.session_state:
         st.session_state.analysis_done = False
         st.session_state.returns_data = None
@@ -1001,7 +1149,6 @@ def main():
         st.session_state.data = None
         st.session_state.summary = None
     
-    # Configuración Principal
     st.markdown("<div class='config-section'>", unsafe_allow_html=True)
     st.markdown("<div class='section-title'>Configuración de Datos</div>", unsafe_allow_html=True)
     
@@ -1014,7 +1161,7 @@ def main():
         period_option = st.selectbox(
             "PERÍODO",
             ["1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"],
-            index=4,  # 2y por defecto
+            index=4,
             format_func=lambda x: {
                 "1mo": "1 Mes", "3mo": "3 Meses", "6mo": "6 Meses",
                 "1y": "1 Año", "2y": "2 Años", "5y": "5 Años",
@@ -1037,9 +1184,8 @@ def main():
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Configuración de Rango de Períodos
     st.markdown("<div class='config-section'>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'>Configuración de Rango de Períodos</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>Configuración de Períodos</div>", unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
     
@@ -1056,13 +1202,12 @@ def main():
         periods_to_test = list(range(min_period, max_period + 1, step_period))
         st.markdown(f"""
             <div class="info-badge">
-                Períodos a probar: {', '.join(map(str, periods_to_test))}
+                Períodos: {', '.join(map(str, periods_to_test))}
             </div>
         """, unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Selección de Indicadores
     st.markdown("<div class='config-section'>", unsafe_allow_html=True)
     st.markdown("<div class='section-title'>Selección de Indicadores</div>", unsafe_allow_html=True)
     
@@ -1071,12 +1216,7 @@ def main():
     with col1:
         select_mode = st.radio(
             "MODO",
-            ["Presets", "Categorías", "Todo"],
-            format_func=lambda x: {
-                "Presets": "Configuraciones", 
-                "Categorías": "Categorías", 
-                "Todo": "Todos"
-            }.get(x, x)
+            ["Presets", "Categorías", "Todo"]
         )
     
     with col2:
@@ -1107,7 +1247,6 @@ def main():
         else:
             selected_categories = ["TODO"]
     
-    # Contar indicadores
     if "TODO" in selected_categories:
         indicator_count = TechnicalIndicators.get_total_count()
     else:
@@ -1117,7 +1256,6 @@ def main():
             if cat in TechnicalIndicators.CATEGORIES
         )
     
-    # Calcular total
     total_with_periods = sum(
         len(periods_to_test) if TechnicalIndicators.needs_period(ind) else 1
         for cat in (["TODO"] if "TODO" in selected_categories else selected_categories)
@@ -1134,7 +1272,6 @@ def main():
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Botón Analizar
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([2, 1, 2])
     with col2:
@@ -1144,7 +1281,6 @@ def main():
             type="primary"
         )
     
-    # Análisis
     if analyze_button and max_return_days >= min_return_days:
         with st.spinner('Procesando indicadores...'):
             returns_data, indicators, data, summary = calculate_all_indicators(
@@ -1164,7 +1300,6 @@ def main():
                 st.session_state.data = data
                 st.session_state.summary = summary
     
-    # Resultados
     if st.session_state.analysis_done:
         returns_data = st.session_state.returns_data
         indicators = st.session_state.indicators
@@ -1173,7 +1308,6 @@ def main():
         
         st.markdown("<hr>", unsafe_allow_html=True)
         
-        # Métricas
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("INDICADORES", summary['indicators_count'])
@@ -1182,10 +1316,9 @@ def main():
         with col3:
             st.metric("PUNTOS DE DATOS", summary['data_points'])
         with col4:
-            st.metric("RANGO DE FECHAS", summary['date_range'].split(' a ')[0])
+            st.metric("RANGO", summary['date_range'].split(' a ')[0])
         
-        # Pestañas de Análisis
-        tab1, tab2, tab3 = st.tabs(["📊 ANÁLISIS", "🏆 RENDIMIENTO", "💾 EXPORTAR"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 ANÁLISIS", "🏆 RENDIMIENTO", "🎯 REGLAS DE TRADING", "💾 EXPORTAR"])
         
         with tab1:
             col1, col2 = st.columns([3, 1])
@@ -1196,7 +1329,7 @@ def main():
                 )
             with col2:
                 return_period = st.number_input(
-                    "DÍAS DE RETORNO",
+                    "DÍAS",
                     min_value=summary['min_return_days'],
                     max_value=summary['max_return_days'],
                     value=min(5, summary['max_return_days'])
@@ -1212,12 +1345,10 @@ def main():
                     st.plotly_chart(fig, use_container_width=True)
         
         with tab2:
-            # Análisis de rendimiento
-            st.markdown("### Análisis de Rendimiento por Indicador")
+            st.markdown("### Análisis de Rendimiento")
             
-            # Selector de días para el análisis
             perf_days = st.selectbox(
-                "DÍAS PARA ANÁLISIS DE RENDIMIENTO",
+                "DÍAS PARA ANÁLISIS",
                 list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
                 index=min(4, summary['max_return_days'] - summary['min_return_days'])
             )
@@ -1259,28 +1390,372 @@ def main():
                 )
         
         with tab3:
-            st.markdown("### Opciones de Exportación")
+            st.markdown("### 🎯 Sistema de Reglas de Trading IS/OOS")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                holding_period = st.selectbox(
+                    "PERÍODO TENENCIA",
+                    list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
+                    index=min(4, summary['max_return_days'] - summary['min_return_days'])
+                )
+            
+            with col2:
+                sample_split = st.slider(
+                    "% IN-SAMPLE",
+                    min_value=50,
+                    max_value=80,
+                    value=70,
+                    step=5
+                )
+            
+            with col3:
+                percentile_thresholds = st.multiselect(
+                    "PERCENTILES",
+                    [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 75, 80, 85, 90, 95],
+                    default=[10, 25, 50, 75, 90]
+                )
+            
+            with col4:
+                min_signals = st.number_input(
+                    "MÍN SEÑALES",
+                    min_value=10,
+                    max_value=100,
+                    value=30
+                )
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                max_indicators_rules = st.number_input(
+                    "MÁX INDICADORES",
+                    min_value=10,
+                    max_value=100,
+                    value=30,
+                    help="Limitar indicadores para acelerar"
+                )
+            
+            with col2:
+                initial_capital = st.number_input(
+                    "CAPITAL ($)",
+                    min_value=1000,
+                    max_value=1000000,
+                    value=10000,
+                    step=1000
+                )
+            
+            with col3:
+                commission = st.number_input(
+                    "COMISIÓN (%)",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=0.1,
+                    step=0.01
+                ) / 100
+            
+            with col4:
+                max_correlation = st.slider(
+                    "MÁX CORR",
+                    min_value=0.3,
+                    max_value=0.9,
+                    value=0.5,
+                    step=0.1,
+                    help="Correlación máxima entre reglas"
+                )
+            
+            if st.button("🚀 EJECUTAR ANÁLISIS DE REGLAS", use_container_width=True):
+                with st.spinner("Generando y evaluando reglas de trading..."):
+                    
+                    # Split IS/OOS
+                    split_index = int(len(data) * sample_split / 100)
+                    
+                    in_sample_data = data.iloc[:split_index].copy()
+                    out_sample_data = data.iloc[split_index:].copy()
+                    
+                    in_sample_indicators = indicators.iloc[:split_index].copy()
+                    out_sample_indicators = indicators.iloc[split_index:].copy()
+                    
+                    st.info(f"📊 División de datos: {len(in_sample_data)} In-Sample | {len(out_sample_data)} Out-of-Sample")
+                    
+                    # Generar reglas
+                    engine = ImprovedTradingEngine()
+                    
+                    st.info("🔄 Generando reglas...")
+                    rules = engine.generate_rules_batch(
+                        in_sample_indicators,
+                        percentile_thresholds,
+                        max_indicators_rules
+                    )
+                    st.success(f"✅ {len(rules)} reglas generadas")
+                    
+                    # Evaluar IN-SAMPLE
+                    st.markdown("#### 📈 Evaluación In-Sample")
+                    is_results = engine.evaluate_rules_vectorized(
+                        rules,
+                        in_sample_indicators,
+                        in_sample_data,
+                        list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
+                        min_signals
+                    )
+                    
+                    if not is_results.empty:
+                        # Top reglas IS
+                        st.markdown("##### Top 20 Reglas In-Sample")
+                        display_cols = ['rule_name', 'type', 'num_signals', f'return_{holding_period}d_mean', 
+                                      f'return_{holding_period}d_sharpe', f'return_{holding_period}d_win_rate']
+                        
+                        is_display = is_results[display_cols].head(20).copy()
+                        is_display.columns = ['Regla', 'Tipo', 'Señales', 'Retorno (%)', 'Sharpe', 'Win Rate (%)']
+                        
+                        st.dataframe(
+                            is_display.style.format({
+                                'Retorno (%)': '{:.2f}',
+                                'Sharpe': '{:.3f}',
+                                'Win Rate (%)': '{:.1f}'
+                            }).background_gradient(subset=['Sharpe'], cmap='RdYlGn'),
+                            use_container_width=True,
+                            height=400
+                        )
+                        
+                        # Evaluar OUT-OF-SAMPLE
+                        st.markdown("#### 📉 Evaluación Out-of-Sample")
+                        
+                        # Tomar mejores reglas no correlacionadas
+                        best_rules = engine.combine_non_correlated_rules(
+                            is_results,
+                            in_sample_indicators,
+                            max_correlation,
+                            10
+                        )
+                        
+                        st.info(f"📊 Seleccionadas {len(best_rules)} reglas no correlacionadas")
+                        
+                        # Evaluar OOS
+                        oos_results = engine.evaluate_rules_vectorized(
+                            best_rules,
+                            out_sample_indicators,
+                            out_sample_data,
+                            list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
+                            min_signals
+                        )
+                        
+                        if not oos_results.empty:
+                            # Comparación IS vs OOS
+                            st.markdown("##### 📊 Comparación In-Sample vs Out-of-Sample")
+                            
+                            comparison_data = []
+                            for rule in best_rules:
+                                is_row = is_results[is_results['rule_name'] == rule['name']]
+                                oos_row = oos_results[oos_results['rule_name'] == rule['name']]
+                                
+                                if not is_row.empty and not oos_row.empty:
+                                    comparison_data.append({
+                                        'Regla': rule['name'],
+                                        'Sharpe IS': is_row[f'return_{holding_period}d_sharpe'].iloc[0],
+                                        'Sharpe OOS': oos_row[f'return_{holding_period}d_sharpe'].iloc[0],
+                                        'Win Rate IS': is_row[f'return_{holding_period}d_win_rate'].iloc[0],
+                                        'Win Rate OOS': oos_row[f'return_{holding_period}d_win_rate'].iloc[0],
+                                        'Retorno IS': is_row[f'return_{holding_period}d_mean'].iloc[0],
+                                        'Retorno OOS': oos_row[f'return_{holding_period}d_mean'].iloc[0]
+                                    })
+                            
+                            if comparison_data:
+                                comparison_df = pd.DataFrame(comparison_data)
+                                
+                                st.dataframe(
+                                    comparison_df.style.format({
+                                        'Sharpe IS': '{:.3f}',
+                                        'Sharpe OOS': '{:.3f}',
+                                        'Win Rate IS': '{:.1f}',
+                                        'Win Rate OOS': '{:.1f}',
+                                        'Retorno IS': '{:.2f}',
+                                        'Retorno OOS': '{:.2f}'
+                                    }),
+                                    use_container_width=True
+                                )
+                                
+                                # BACKTEST COMPLETO
+                                st.markdown("#### 🚀 Backtest Completo")
+                                
+                                # Backtest IS
+                                is_portfolio, is_metrics = engine.comprehensive_backtest(
+                                    best_rules[:5],
+                                    in_sample_indicators,
+                                    in_sample_data,
+                                    initial_capital,
+                                    commission
+                                )
+                                
+                                # Backtest OOS
+                                oos_portfolio, oos_metrics = engine.comprehensive_backtest(
+                                    best_rules[:5],
+                                    out_sample_indicators,
+                                    out_sample_data,
+                                    initial_capital,
+                                    commission
+                                )
+                                
+                                # Backtest completo
+                                full_portfolio, full_metrics = engine.comprehensive_backtest(
+                                    best_rules[:5],
+                                    indicators,
+                                    data,
+                                    initial_capital,
+                                    commission
+                                )
+                                
+                                # Tabla de métricas
+                                st.markdown("##### 📊 Tabla de Métricas de Rendimiento")
+                                
+                                metrics_comparison = pd.DataFrame({
+                                    'Métrica': ['Retorno Total (%)', 'Retorno Anualizado (%)', 'Sharpe Ratio', 
+                                              'Sortino Ratio', 'Max Drawdown (%)', 'Profit Factor', 
+                                              'Win Rate (%)', 'Núm Trades', 'Calmar Ratio'],
+                                    'In-Sample': [
+                                        is_metrics['total_return'],
+                                        is_metrics['annualized_return'],
+                                        is_metrics['sharpe_ratio'],
+                                        is_metrics['sortino_ratio'],
+                                        is_metrics['max_drawdown'],
+                                        is_metrics['profit_factor'],
+                                        is_metrics['win_rate'],
+                                        is_metrics['num_trades'],
+                                        is_metrics['calmar_ratio']
+                                    ],
+                                    'Out-of-Sample': [
+                                        oos_metrics['total_return'],
+                                        oos_metrics['annualized_return'],
+                                        oos_metrics['sharpe_ratio'],
+                                        oos_metrics['sortino_ratio'],
+                                        oos_metrics['max_drawdown'],
+                                        oos_metrics['profit_factor'],
+                                        oos_metrics['win_rate'],
+                                        oos_metrics['num_trades'],
+                                        oos_metrics['calmar_ratio']
+                                    ],
+                                    'Completo': [
+                                        full_metrics['total_return'],
+                                        full_metrics['annualized_return'],
+                                        full_metrics['sharpe_ratio'],
+                                        full_metrics['sortino_ratio'],
+                                        full_metrics['max_drawdown'],
+                                        full_metrics['profit_factor'],
+                                        full_metrics['win_rate'],
+                                        full_metrics['num_trades'],
+                                        full_metrics['calmar_ratio']
+                                    ]
+                                })
+                                
+                                st.dataframe(
+                                    metrics_comparison.style.format({
+                                        'In-Sample': '{:.2f}',
+                                        'Out-of-Sample': '{:.2f}',
+                                        'Completo': '{:.2f}'
+                                    }).background_gradient(axis=1, cmap='RdYlGn'),
+                                    use_container_width=True
+                                )
+                                
+                                # Gráfico de Equity Curve
+                                fig = go.Figure()
+                                
+                                fig.add_trace(
+                                    go.Scatter(
+                                        x=full_portfolio.index,
+                                        y=full_portfolio['equity'],
+                                        mode='lines',
+                                        name='Estrategia',
+                                        line=dict(color='#51CF66', width=2)
+                                    )
+                                )
+                                
+                                fig.add_trace(
+                                    go.Scatter(
+                                        x=full_portfolio.index,
+                                        y=initial_capital * full_portfolio['cumulative_market'],
+                                        mode='lines',
+                                        name='Buy & Hold',
+                                        line=dict(color='#808080', width=1.5, dash='dash')
+                                    )
+                                )
+                                
+                                # Marcar división IS/OOS
+                                fig.add_vline(
+                                    x=data.index[split_index],
+                                    line=dict(color='#FF6B6B', width=2, dash='dash'),
+                                    annotation_text="IN-SAMPLE | OUT-OF-SAMPLE",
+                                    annotation_position="top"
+                                )
+                                
+                                fig.update_layout(
+                                    height=600,
+                                    template="plotly_dark",
+                                    title="Curva de Equity - Estrategia vs Buy & Hold",
+                                    xaxis_title="Fecha",
+                                    yaxis_title="Capital ($)",
+                                    showlegend=True,
+                                    paper_bgcolor='#0D1117',
+                                    plot_bgcolor='#161B22'
+                                )
+                                
+                                st.plotly_chart(fig, use_container_width=True)
+                                
+                                # Métricas destacadas
+                                col1, col2, col3, col4 = st.columns(4)
+                                
+                                with col1:
+                                    st.metric(
+                                        "RETORNO TOTAL",
+                                        f"{full_metrics['total_return']:.2f}%",
+                                        f"{full_metrics['excess_return']:.2f}%"
+                                    )
+                                
+                                with col2:
+                                    st.metric(
+                                        "SHARPE RATIO",
+                                        f"{full_metrics['sharpe_ratio']:.3f}"
+                                    )
+                                
+                                with col3:
+                                    st.metric(
+                                        "MAX DRAWDOWN",
+                                        f"{full_metrics['max_drawdown']:.2f}%"
+                                    )
+                                
+                                with col4:
+                                    st.metric(
+                                        "PROFIT FACTOR",
+                                        f"{full_metrics['profit_factor']:.2f}"
+                                    )
+                            else:
+                                st.warning("No se pudieron comparar reglas IS/OOS")
+                        else:
+                            st.warning("No se pudieron evaluar reglas OOS")
+                    else:
+                        st.warning("No se encontraron reglas válidas")
+        
+        with tab4:
+            st.markdown("### 💾 Opciones de Exportación")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button("GENERAR CSV DE RENDIMIENTO"):
-                    if performance:
-                        csv = perf_df.to_csv(index=False)
-                        st.download_button(
-                            "📥 Descargar Rendimiento",
-                            data=csv,
-                            file_name=f"{ticker}_rendimiento_{datetime.now().strftime('%Y%m%d')}.csv",
-                            mime="text/csv"
-                        )
-            
-            with col2:
-                if st.button("GENERAR CSV DE INDICADORES"):
+                if st.button("📥 Descargar Indicadores"):
                     csv = indicators.to_csv()
                     st.download_button(
-                        "📥 Descargar Indicadores",
+                        "Descargar CSV",
                         data=csv,
                         file_name=f"{ticker}_indicadores_{datetime.now().strftime('%Y%m%d')}.csv",
+                        mime="text/csv"
+                    )
+            
+            with col2:
+                if st.button("📥 Descargar Datos"):
+                    csv = data.to_csv()
+                    st.download_button(
+                        "Descargar CSV",
+                        data=csv,
+                        file_name=f"{ticker}_datos_{datetime.now().strftime('%Y%m%d')}.csv",
                         mime="text/csv"
                     )
 
