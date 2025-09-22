@@ -494,7 +494,7 @@ class TechnicalIndicators:
 def download_data(ticker: str, period: str) -> Optional[pd.DataFrame]:
     """Download historical data"""
     try:
-        data = yf.download(ticker, period=period, progress=False, auto_adjust=True)
+        data = yf.download(ticker, period=period, progress=False, auto_adjust=True, multi_level_index=False)
         
         if data.empty:
             st.error(f"No data found for {ticker}")
