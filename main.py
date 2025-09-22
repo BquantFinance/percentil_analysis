@@ -631,7 +631,7 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_da
     
     return returns_data, indicators, data, summary
 
-def create_percentile_plot(indicators, returns_data, data, indicator_name, return_days):
+def create_percentile_plot(indicators, returns_data, data, indicator_name, return_days, quantiles=10):
     """Create enhanced analysis plots with beautiful dark theme aesthetics"""
     
     if indicator_name not in indicators.columns or indicator_name not in returns_data:
