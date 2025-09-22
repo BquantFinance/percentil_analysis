@@ -1210,9 +1210,9 @@ def main():
             
             if selected_indicator:
                 fig = create_percentile_plot(
-                    indicators, returns_data, data,
-                    selected_indicator, return_period
-                )
+                indicators, returns_data, data,
+                selected_indicator, return_period, quantiles  # Add this parameter
+            )
                 
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
