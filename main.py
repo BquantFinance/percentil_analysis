@@ -9,19 +9,19 @@ from datetime import datetime, timedelta
 import warnings
 from typing import Dict, List, Tuple, Optional
 from scipy import stats
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, gaussian_kde
 
 warnings.filterwarnings('ignore')
 
-# ===================== PAGE CONFIGURATION =====================
+# ===================== CONFIGURACIÓN DE PÁGINA =====================
 st.set_page_config(
-    page_title="Quantitative Analysis Platform",
+    page_title="Plataforma de Análisis Cuantitativo",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ===================== ELEGANT GRAY DARK MODE STYLING =====================
+# ===================== ESTILO ELEGANTE MODO OSCURO =====================
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap');
@@ -186,12 +186,10 @@ st.markdown("""
         margin: 2.5rem 0;
     }
     
-    /* Dataframe styling */
     .dataframe {
         font-size: 0.85rem !important;
     }
     
-    /* Plotly chart background */
     .js-plotly-plot {
         border-radius: 8px;
         overflow: hidden;
@@ -199,20 +197,13 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ===================== TECHNICAL INDICATORS CLASS =====================
+# ===================== CLASE DE INDICADORES TÉCNICOS =====================
 class TechnicalIndicators:
-    """Complete TALib indicators manager (200+ indicators)"""
-    
-    @staticmethod
-    def calculate_bbands(h, l, c, v, o, p):
-        try:
-            result = talib.BBANDS(c, timeperiod=p or 20, nbdevup=2, nbdevdn=2)
-            return result[0]  # Return upper band
-        except: return None
+    """Gestor completo de indicadores TALib (200+ indicadores)"""
     
     @staticmethod
     def calculate_single_indicator(name, h, l, c, v, o, p):
-        """Calculate a single indicator with proper error handling"""
+        """Calcular un indicador con manejo de errores"""
         try:
             h = np.asarray(h, dtype=np.float64)
             l = np.asarray(l, dtype=np.float64)
@@ -220,7 +211,7 @@ class TechnicalIndicators:
             v = np.asarray(v, dtype=np.float64)
             o = np.asarray(o, dtype=np.float64)
             
-            # Overlap Studies
+            # Estudios de Superposición
             if name == 'BBANDS':
                 result = talib.BBANDS(c, timeperiod=p or 20)
                 return result[0]
@@ -242,7 +233,7 @@ class TechnicalIndicators:
             elif name == 'TRIMA': return talib.TRIMA(c, timeperiod=p or 30)
             elif name == 'WMA': return talib.WMA(c, timeperiod=p or 30)
             
-            # Momentum Indicators
+            # Indicadores de Momentum
             elif name == 'ADX': return talib.ADX(h, l, c, timeperiod=p or 14)
             elif name == 'ADXR': return talib.ADXR(h, l, c, timeperiod=p or 14)
             elif name == 'APO': return talib.APO(c, fastperiod=max(p//2, 2) if p else 12, slowperiod=p or 26)
@@ -288,17 +279,17 @@ class TechnicalIndicators:
             elif name == 'ULTOSC': return talib.ULTOSC(h, l, c, timeperiod1=max(p//3, 2) if p else 7, timeperiod2=max(p//2, 3) if p else 14, timeperiod3=p or 28)
             elif name == 'WILLR': return talib.WILLR(h, l, c, timeperiod=p or 14)
             
-            # Volume Indicators
+            # Indicadores de Volumen
             elif name == 'AD': return talib.AD(h, l, c, v)
             elif name == 'ADOSC': return talib.ADOSC(h, l, c, v, fastperiod=max(p//3, 2) if p else 3, slowperiod=p or 10)
             elif name == 'OBV': return talib.OBV(c, v)
             
-            # Volatility
+            # Volatilidad
             elif name == 'ATR': return talib.ATR(h, l, c, timeperiod=p or 14)
             elif name == 'NATR': return talib.NATR(h, l, c, timeperiod=p or 14)
             elif name == 'TRANGE': return talib.TRANGE(h, l, c)
             
-            # Cycle Indicators
+            # Indicadores de Ciclo
             elif name == 'HT_DCPERIOD': return talib.HT_DCPERIOD(c)
             elif name == 'HT_DCPHASE': return talib.HT_DCPHASE(c)
             elif name == 'HT_PHASOR':
@@ -309,7 +300,7 @@ class TechnicalIndicators:
                 return result[0] if isinstance(result, tuple) else result
             elif name == 'HT_TRENDMODE': return talib.HT_TRENDMODE(c)
             
-            # Statistics
+            # Estadísticas
             elif name == 'BETA': return talib.BETA(h, l, timeperiod=p or 5)
             elif name == 'CORREL': return talib.CORREL(h, l, timeperiod=p or 30)
             elif name == 'LINEARREG': return talib.LINEARREG(c, timeperiod=p or 14)
@@ -320,7 +311,7 @@ class TechnicalIndicators:
             elif name == 'TSF': return talib.TSF(c, timeperiod=p or 14)
             elif name == 'VAR': return talib.VAR(c, timeperiod=p or 5)
             
-            # Math Transform
+            # Transformaciones Matemáticas
             elif name == 'ACOS': return talib.ACOS(c)
             elif name == 'ASIN': return talib.ASIN(c)
             elif name == 'ATAN': return talib.ATAN(c)
@@ -337,7 +328,7 @@ class TechnicalIndicators:
             elif name == 'TAN': return talib.TAN(c)
             elif name == 'TANH': return talib.TANH(c)
             
-            # Math Operators
+            # Operadores Matemáticos
             elif name == 'ADD': return talib.ADD(c, c)
             elif name == 'DIV': return talib.DIV(c, c)
             elif name == 'MAX': return talib.MAX(c, timeperiod=p or 30)
@@ -354,13 +345,13 @@ class TechnicalIndicators:
             elif name == 'SUB': return talib.SUB(c, c)
             elif name == 'SUM': return talib.SUM(c, timeperiod=p or 30)
             
-            # Price Transform
+            # Transformaciones de Precio
             elif name == 'AVGPRICE': return talib.AVGPRICE(o, h, l, c)
             elif name == 'MEDPRICE': return talib.MEDPRICE(h, l)
             elif name == 'TYPPRICE': return talib.TYPPRICE(h, l, c)
             elif name == 'WCLPRICE': return talib.WCLPRICE(h, l, c)
             
-            # Candle patterns
+            # Patrones de velas
             elif name.startswith('CDL'):
                 if hasattr(talib, name):
                     func = getattr(talib, name)
@@ -370,9 +361,9 @@ class TechnicalIndicators:
         except:
             return None
     
-    # All indicators list
+    # Lista completa de indicadores
     ALL_INDICATORS = [
-        # Overlap Studies (17)
+        # Estudios de Superposición (17)
         'BBANDS', 'DEMA', 'EMA', 'HT_TRENDLINE', 'KAMA', 'MA',
         'MAMA', 'MIDPOINT', 'MIDPRICE', 'SAR', 'SAREXT',
         'SMA', 'T3', 'TEMA', 'TRIMA', 'WMA',
@@ -385,33 +376,33 @@ class TechnicalIndicators:
         'RSI', 'STOCH', 'STOCHF', 'STOCHRSI', 'TRIX',
         'ULTOSC', 'WILLR',
         
-        # Volume (3)
+        # Volumen (3)
         'AD', 'ADOSC', 'OBV',
         
-        # Volatility (3)
+        # Volatilidad (3)
         'ATR', 'NATR', 'TRANGE',
         
-        # Cycles (5)
+        # Ciclos (5)
         'HT_DCPERIOD', 'HT_DCPHASE', 'HT_PHASOR', 'HT_SINE', 'HT_TRENDMODE',
         
-        # Statistics (9)
+        # Estadísticas (9)
         'BETA', 'CORREL', 'LINEARREG', 'LINEARREG_ANGLE',
         'LINEARREG_INTERCEPT', 'LINEARREG_SLOPE', 'STDDEV', 'TSF', 'VAR',
         
-        # Math Transform (15)
+        # Transformaciones Matemáticas (15)
         'ACOS', 'ASIN', 'ATAN', 'CEIL', 'COS', 'COSH',
         'EXP', 'FLOOR', 'LN', 'LOG10', 'SIN', 'SINH',
         'SQRT', 'TAN', 'TANH',
         
-        # Math Operators (11)
+        # Operadores Matemáticos (11)
         'ADD', 'DIV', 'MAX', 'MAXINDEX', 'MIN', 'MININDEX',
         'MINMAX', 'MINMAXINDEX', 'MULT', 'SUB', 'SUM',
         
-        # Price Transform (4)
+        # Transformaciones de Precio (4)
         'AVGPRICE', 'MEDPRICE', 'TYPPRICE', 'WCLPRICE',
     ]
     
-    # Candle patterns (61)
+    # Patrones de velas (61)
     CANDLE_PATTERNS = [
         'CDL2CROWS', 'CDL3BLACKCROWS', 'CDL3INSIDE', 'CDL3LINESTRIKE', 'CDL3OUTSIDE',
         'CDL3STARSINSOUTH', 'CDL3WHITESOLDIERS', 'CDLABANDONEDBABY', 'CDLADVANCEBLOCK',
@@ -431,7 +422,7 @@ class TechnicalIndicators:
     ]
     
     CATEGORIES = {
-        "Overlaps": ['BBANDS', 'DEMA', 'EMA', 'HT_TRENDLINE', 'KAMA', 'MA',
+        "Superposición": ['BBANDS', 'DEMA', 'EMA', 'HT_TRENDLINE', 'KAMA', 'MA',
                      'MAMA', 'MIDPOINT', 'MIDPRICE', 'SAR', 'SAREXT',
                      'SMA', 'T3', 'TEMA', 'TRIMA', 'WMA'],
         "Momentum": ['ADX', 'ADXR', 'APO', 'AROON', 'AROONOSC', 'BOP',
@@ -440,23 +431,23 @@ class TechnicalIndicators:
                      'PLUS_DM', 'PPO', 'ROC', 'ROCP', 'ROCR', 'ROCR100',
                      'RSI', 'STOCH', 'STOCHF', 'STOCHRSI', 'TRIX',
                      'ULTOSC', 'WILLR'],
-        "Volume": ['AD', 'ADOSC', 'OBV'],
-        "Volatility": ['ATR', 'NATR', 'TRANGE'],
-        "Cycles": ['HT_DCPERIOD', 'HT_DCPHASE', 'HT_PHASOR', 'HT_SINE', 'HT_TRENDMODE'],
-        "Statistics": ['BETA', 'CORREL', 'LINEARREG', 'LINEARREG_ANGLE',
+        "Volumen": ['AD', 'ADOSC', 'OBV'],
+        "Volatilidad": ['ATR', 'NATR', 'TRANGE'],
+        "Ciclos": ['HT_DCPERIOD', 'HT_DCPHASE', 'HT_PHASOR', 'HT_SINE', 'HT_TRENDMODE'],
+        "Estadísticas": ['BETA', 'CORREL', 'LINEARREG', 'LINEARREG_ANGLE',
                        'LINEARREG_INTERCEPT', 'LINEARREG_SLOPE', 'STDDEV', 'TSF', 'VAR'],
-        "Math Transform": ['ACOS', 'ASIN', 'ATAN', 'CEIL', 'COS', 'COSH',
+        "Transformación Matemática": ['ACOS', 'ASIN', 'ATAN', 'CEIL', 'COS', 'COSH',
                           'EXP', 'FLOOR', 'LN', 'LOG10', 'SIN', 'SINH',
                           'SQRT', 'TAN', 'TANH'],
-        "Math Operators": ['ADD', 'DIV', 'MAX', 'MAXINDEX', 'MIN', 'MININDEX',
+        "Operadores Matemáticos": ['ADD', 'DIV', 'MAX', 'MAXINDEX', 'MIN', 'MININDEX',
                           'MINMAX', 'MINMAXINDEX', 'MULT', 'SUB', 'SUM'],
-        "Price Transform": ['AVGPRICE', 'MEDPRICE', 'TYPPRICE', 'WCLPRICE'],
-        "Patterns": CANDLE_PATTERNS
+        "Transformación de Precio": ['AVGPRICE', 'MEDPRICE', 'TYPPRICE', 'WCLPRICE'],
+        "Patrones de Velas": CANDLE_PATTERNS
     }
     
     @classmethod
     def needs_period(cls, indicator_name):
-        """Check if indicator needs period parameter"""
+        """Verificar si el indicador necesita parámetro de periodo"""
         no_period = [
             'HT_TRENDLINE', 'BOP', 'MACDFIX', 'AD', 'OBV', 'TRANGE',
             'SAR', 'SAREXT', 'MAMA',
@@ -472,12 +463,11 @@ class TechnicalIndicators:
     
     @classmethod
     def calculate_indicator(cls, indicator_name, high, low, close, volume, open_prices, period):
-        """Calculate any indicator with error handling"""
+        """Calcular cualquier indicador con manejo de errores"""
         try:
             result = cls.calculate_single_indicator(indicator_name, high, low, close, volume, open_prices, period)
             
             if result is not None:
-                # Check if result has valid values
                 if not np.all(np.isnan(result)):
                     return result
             
@@ -489,37 +479,38 @@ class TechnicalIndicators:
     def get_total_count(cls):
         return len(cls.ALL_INDICATORS) + len(cls.CANDLE_PATTERNS)
 
-# ===================== CALCULATION FUNCTIONS =====================
+# ===================== FUNCIONES DE CÁLCULO =====================
 @st.cache_data
 def download_data(ticker: str, period: str) -> Optional[pd.DataFrame]:
-    """Download historical data"""
+    """Descargar datos históricos"""
     try:
         data = yf.download(ticker, period=period, progress=False, auto_adjust=True, multi_level_index=False)
         
         if data.empty:
-            st.error(f"No data found for {ticker}")
+            st.error(f"No se encontraron datos para {ticker}")
             return None
         
         return data
         
     except Exception as e:
-        st.error(f"Error downloading data: {str(e)}")
+        st.error(f"Error descargando datos: {str(e)}")
         return None
 
 @st.cache_data
-def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_days: int, 
-                             periods_to_test: List[int], selected_categories: List[str]) -> Tuple:
-    """Calculate all selected indicators"""
+def calculate_all_indicators(ticker: str, period: str, quantiles: int, min_return_days: int, 
+                             max_return_days: int, periods_to_test: List[int], 
+                             selected_categories: List[str]) -> Tuple:
+    """Calcular todos los indicadores seleccionados"""
     
     data = download_data(ticker, period)
     if data is None:
         return None, None, None, None
     
-    # Calculate returns
-    for i in range(1, return_days + 1):
-        data[f'returns_{i}_days'] = data['Close'].pct_change(i) * 100
+    # Calcular retornos para el rango de días
+    for i in range(min_return_days, max_return_days + 1):
+        data[f'retornos_{i}_dias'] = data['Close'].pct_change(i) * 100
     
-    # Prepare data
+    # Preparar datos
     high = data['High'].values
     low = data['Low'].values
     close = data['Close'].values
@@ -528,10 +519,10 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_da
     
     indicators = pd.DataFrame(index=data.index)
     
-    # Get indicators to calculate
+    # Obtener indicadores a calcular
     indicators_to_calc = []
     
-    if "ALL" in selected_categories:
+    if "TODO" in selected_categories:
         indicators_to_calc = TechnicalIndicators.ALL_INDICATORS + TechnicalIndicators.CANDLE_PATTERNS
     else:
         for category in selected_categories:
@@ -540,7 +531,7 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_da
     
     indicators_to_calc = list(set(indicators_to_calc))
     
-    # Count calculations
+    # Contar cálculos
     total_calculations = sum(
         len(periods_to_test) if TechnicalIndicators.needs_period(ind) else 1 
         for ind in indicators_to_calc
@@ -551,12 +542,12 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_da
     calculation_counter = 0
     successful = 0
     
-    # Calculate indicators
+    # Calcular indicadores
     for indicator_name in indicators_to_calc:
         if TechnicalIndicators.needs_period(indicator_name):
             for period in periods_to_test:
                 calculation_counter += 1
-                status_text.text(f"⏳ Calculating {indicator_name}_{period}...")
+                status_text.text(f"⏳ Calculando {indicator_name}_{period}...")
                 
                 result = TechnicalIndicators.calculate_indicator(
                     indicator_name, high, low, close, volume, open_prices, period
@@ -569,7 +560,7 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_da
                 progress_bar.progress(calculation_counter / total_calculations)
         else:
             calculation_counter += 1
-            status_text.text(f"⏳ Calculating {indicator_name}...")
+            status_text.text(f"⏳ Calculando {indicator_name}...")
             
             result = TechnicalIndicators.calculate_indicator(
                 indicator_name, high, low, close, volume, open_prices, 0
@@ -584,40 +575,38 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_da
     progress_bar.empty()
     status_text.empty()
     
-    # Drop completely empty columns
+    # Eliminar columnas completamente vacías
     indicators = indicators.dropna(axis=1, how='all')
     
-    # Calculate percentile analysis
+    # Calcular análisis de percentiles
     returns_data = {}
     
     for indicator_col in indicators.columns:
         try:
-            temp_df = pd.DataFrame({'indicator': indicators[indicator_col]})
+            returns_data[indicator_col] = {}
             
-            for i in range(1, return_days + 1):
-                ret_col = f'returns_{i}_days'
+            for i in range(min_return_days, max_return_days + 1):
+                temp_df = pd.DataFrame({'indicator': indicators[indicator_col]})
+                
+                ret_col = f'retornos_{i}_dias'
                 if ret_col in data.columns:
                     temp_df[ret_col] = data[ret_col]
-            
-            temp_df = temp_df.dropna()
-            
-            if len(temp_df) >= quantiles * 2:  # Need enough data for quantiles
-                temp_df['quantile'] = pd.qcut(temp_df['indicator'], q=quantiles, duplicates='drop')
                 
-                returns_data[indicator_col] = pd.DataFrame()
-                for i in range(1, return_days + 1):
-                    ret_col = f'returns_{i}_days'
-                    if ret_col in temp_df.columns:
-                        grouped = temp_df.groupby('quantile')[ret_col].agg(['mean', 'std', 'count'])
-                        returns_data[indicator_col][f'returns_{i}_days_mean'] = grouped['mean']
-                        returns_data[indicator_col][f'returns_{i}_days_std'] = grouped['std']
-                        returns_data[indicator_col][f'returns_{i}_days_count'] = grouped['count']
+                temp_df = temp_df.dropna()
+                
+                if len(temp_df) >= quantiles * 2:
+                    temp_df['quantile'] = pd.qcut(temp_df['indicator'], q=quantiles, duplicates='drop')
+                    
+                    grouped = temp_df.groupby('quantile')[ret_col].agg(['mean', 'std', 'count'])
+                    returns_data[indicator_col][f'retornos_{i}_dias_mean'] = grouped['mean']
+                    returns_data[indicator_col][f'retornos_{i}_dias_std'] = grouped['std']
+                    returns_data[indicator_col][f'retornos_{i}_dias_count'] = grouped['count']
         except:
             continue
     
     st.markdown(f"""
         <div class="success-badge">
-            ✓ Successfully calculated {successful} out of {total_calculations} configurations
+            ✓ Calculados exitosamente {successful} de {total_calculations} configuraciones
         </div>
     """, unsafe_allow_html=True)
     
@@ -626,79 +615,385 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_da
         'successful': successful,
         'indicators_count': len(indicators.columns),
         'data_points': len(data),
-        'date_range': f"{data.index[0].strftime('%Y-%m-%d')} to {data.index[-1].strftime('%Y-%m-%d')}"
+        'date_range': f"{data.index[0].strftime('%Y-%m-%d')} a {data.index[-1].strftime('%Y-%m-%d')}",
+        'min_return_days': min_return_days,
+        'max_return_days': max_return_days
     }
     
     return returns_data, indicators, data, summary
 
-    # UPDATE LAYOUT
+def create_percentile_plot(indicators, returns_data, data, indicator_name, return_days, quantiles=10):
+    """Crear gráficos de análisis mejorados con tema oscuro"""
+    
+    if indicator_name not in indicators.columns or indicator_name not in returns_data:
+        return None
+    
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=(
+            '<b>Distribución y Estadísticas</b>', '<b>Retornos por Percentil</b>',
+            '<b>Correlación Móvil (126 días)</b>', '<b>Análisis de Dispersión con Densidad</b>'
+        ),
+        specs=[
+            [{"type": "histogram"}, {"type": "bar"}],
+            [{"type": "scatter"}, {"type": "scatter"}]
+        ],
+        vertical_spacing=0.15,
+        horizontal_spacing=0.15
+    )
+    
+    # Paleta de colores
+    gradient_colors = ['#FF6B6B', '#FE8C68', '#FEAA68', '#FEC868', '#FFE66D', 
+                       '#C7E66D', '#8FE66D', '#5FE668', '#4FC668', '#51CF66']
+    
+    # 1. DISTRIBUCIÓN MEJORADA CON KDE
+    hist_data = indicators[indicator_name].dropna()
+    
+    if len(hist_data) > 0:
+        # Calcular estadísticas
+        mean_val = hist_data.mean()
+        median_val = hist_data.median()
+        std_val = hist_data.std()
+        q25 = hist_data.quantile(0.25)
+        q75 = hist_data.quantile(0.75)
+        
+        # Histograma con más bins
+        fig.add_trace(
+            go.Histogram(
+                x=hist_data,
+                nbinsx=100,
+                marker=dict(
+                    color='rgba(100, 150, 255, 0.4)',
+                    line=dict(color='rgba(100, 150, 255, 0.6)', width=0.5)
+                ),
+                name='Distribución',
+                showlegend=False,
+                histnorm='probability density'
+            ),
+            row=1, col=1
+        )
+        
+        # Añadir KDE
+        kde = gaussian_kde(hist_data.values)
+        x_range = np.linspace(hist_data.min(), hist_data.max(), 200)
+        kde_values = kde(x_range)
+        
+        fig.add_trace(
+            go.Scatter(
+                x=x_range,
+                y=kde_values,
+                mode='lines',
+                line=dict(color='#FFE66D', width=3),
+                name='KDE',
+                showlegend=False
+            ),
+            row=1, col=1
+        )
+        
+        # Líneas verticales para estadísticas
+        fig.add_vline(
+            x=mean_val, 
+            line=dict(color='#51CF66', width=2, dash='solid'),
+            row=1, col=1
+        )
+        
+        fig.add_vline(
+            x=median_val, 
+            line=dict(color='#FF6B6B', width=2, dash='dash'),
+            row=1, col=1
+        )
+        
+        fig.add_vline(
+            x=q25, 
+            line=dict(color='rgba(128, 128, 128, 0.5)', width=1, dash='dot'),
+            row=1, col=1
+        )
+        fig.add_vline(
+            x=q75, 
+            line=dict(color='rgba(128, 128, 128, 0.5)', width=1, dash='dot'),
+            row=1, col=1
+        )
+        
+        # Anotaciones mejoradas
+        fig.add_annotation(
+            x=mean_val,
+            y=max(kde_values) * 1.1,
+            text=f"Media: {mean_val:.1f}",
+            showarrow=False,
+            font=dict(color='#51CF66', size=10),
+            bgcolor='rgba(13, 17, 23, 0.8)',
+            bordercolor='#51CF66',
+            borderwidth=1,
+            borderpad=4,
+            xref="x",
+            yref="y",
+            row=1, col=1
+        )
+        
+        fig.add_annotation(
+            x=median_val,
+            y=max(kde_values) * 1.2,
+            text=f"Mediana: {median_val:.1f}",
+            showarrow=False,
+            font=dict(color='#FF6B6B', size=10),
+            bgcolor='rgba(13, 17, 23, 0.8)',
+            bordercolor='#FF6B6B',
+            borderwidth=1,
+            borderpad=4,
+            xref="x",
+            yref="y",
+            row=1, col=1
+        )
+    
+    # 2. RETORNOS POR PERCENTIL MEJORADOS
+    returns_col = f'retornos_{return_days}_dias_mean'
+    if returns_col in returns_data[indicator_name]:
+        returns_values = returns_data[indicator_name][returns_col]
+        x_labels = [f'P{i+1}' for i in range(len(returns_values))]
+        
+        # Colores basados en valores
+        max_abs = max(abs(returns_values.max()), abs(returns_values.min())) if returns_values.max() != returns_values.min() else 1
+        normalized_values = [(val + max_abs) / (2 * max_abs) for val in returns_values]
+        colors = [gradient_colors[min(int(norm * (len(gradient_colors) - 1)), len(gradient_colors)-1)] for norm in normalized_values]
+        
+        # Barras de error si están disponibles
+        std_col = f'retornos_{return_days}_dias_std'
+        error_y = None
+        if std_col in returns_data[indicator_name]:
+            error_y = dict(
+                type='data',
+                array=returns_data[indicator_name][std_col],
+                visible=True,
+                color='rgba(255, 255, 255, 0.3)',
+                thickness=1.5,
+                width=4
+            )
+        
+        fig.add_trace(
+            go.Bar(
+                x=x_labels,
+                y=returns_values,
+                marker=dict(
+                    color=colors,
+                    line=dict(color='rgba(255, 255, 255, 0.2)', width=1)
+                ),
+                text=[f'{val:.2f}%' for val in returns_values],
+                textposition='outside',
+                textfont=dict(size=10, color='white'),
+                error_y=error_y,
+                showlegend=False
+            ),
+            row=1, col=2
+        )
+        
+        # Línea de tendencia
+        x_numeric = list(range(len(returns_values)))
+        z = np.polyfit(x_numeric, returns_values, 1)
+        p = np.poly1d(z)
+        
+        fig.add_trace(
+            go.Scatter(
+                x=x_labels,
+                y=p(x_numeric),
+                mode='lines',
+                line=dict(color='rgba(255, 255, 255, 0.6)', width=2, dash='dash'),
+                showlegend=False
+            ),
+            row=1, col=2
+        )
+    
+    # 3. CORRELACIÓN MÓVIL MEJORADA
+    if f'retornos_{return_days}_dias' in data.columns:
+        common_idx = data.index.intersection(indicators[indicator_name].index)
+        if len(common_idx) > 126:
+            aligned_returns = data.loc[common_idx, f'retornos_{return_days}_dias']
+            aligned_indicator = indicators.loc[common_idx, indicator_name]
+            
+            rolling_corr = aligned_returns.rolling(126).corr(aligned_indicator).dropna()
+            
+            # Relleno para valores positivos
+            fig.add_trace(
+                go.Scatter(
+                    x=rolling_corr.index,
+                    y=np.maximum(rolling_corr.values, 0),
+                    mode='lines',
+                    line=dict(color='#4FC668', width=0),
+                    fill='tozeroy',
+                    fillcolor='rgba(79, 198, 104, 0.3)',
+                    showlegend=False
+                ),
+                row=2, col=1
+            )
+            
+            # Relleno para valores negativos
+            fig.add_trace(
+                go.Scatter(
+                    x=rolling_corr.index,
+                    y=np.minimum(rolling_corr.values, 0),
+                    mode='lines',
+                    line=dict(color='#FF6B6B', width=0),
+                    fill='tozeroy',
+                    fillcolor='rgba(255, 107, 107, 0.3)',
+                    showlegend=False
+                ),
+                row=2, col=1
+            )
+            
+            # Línea principal
+            fig.add_trace(
+                go.Scatter(
+                    x=rolling_corr.index,
+                    y=rolling_corr.values,
+                    mode='lines',
+                    line=dict(color='#FFFFFF', width=2),
+                    showlegend=False
+                ),
+                row=2, col=1
+            )
+            
+            # Líneas de referencia
+            fig.add_hline(y=0, line=dict(color='rgba(255, 255, 255, 0.3)', width=1), row=2, col=1)
+            
+            for y, alpha in [(0.5, 0.05), (-0.5, 0.05)]:
+                fig.add_hline(
+                    y=y,
+                    line=dict(color=f'rgba(255, 255, 255, {alpha})', width=1, dash='dot'),
+                    row=2, col=1
+                )
+    
+    # 4. GRÁFICO DE DISPERSIÓN MEJORADO CON COLORES MÁS BRILLANTES
+    if f'retornos_{return_days}_dias' in data.columns:
+        common_idx = data.index.intersection(indicators[indicator_name].index)
+        if len(common_idx) > 0:
+            x_data = indicators.loc[common_idx, indicator_name]
+            y_data = data.loc[common_idx, f'retornos_{return_days}_dias']
+            
+            mask = ~(x_data.isna() | y_data.isna())
+            if mask.sum() > 1:
+                x_clean = x_data[mask]
+                y_clean = y_data[mask]
+                
+                # Calcular densidad de puntos
+                try:
+                    xy = np.vstack([x_clean, y_clean])
+                    density = gaussian_kde(xy)(xy)
+                except:
+                    density = y_clean
+                
+                # Colores más brillantes para mejor visibilidad
+                fig.add_trace(
+                    go.Scattergl(
+                        x=x_clean,
+                        y=y_clean,
+                        mode='markers',
+                        marker=dict(
+                            size=4,
+                            color=density,
+                            colorscale=[
+                                [0, '#2E3440'],     # Gris oscuro
+                                [0.2, '#5E81AC'],   # Azul
+                                [0.4, '#81A1C1'],   # Azul claro
+                                [0.6, '#88C0D0'],   # Cian
+                                [0.8, '#A3BE8C'],   # Verde claro
+                                [1, '#EBCB8B']      # Amarillo
+                            ],
+                            opacity=0.8,
+                            line=dict(width=0),
+                            showscale=True,
+                            colorbar=dict(
+                                title=dict(
+                                    text="Densidad",
+                                    font=dict(size=10)
+                                ),
+                                tickfont=dict(size=9),
+                                len=0.8,
+                                x=1.02,
+                                thickness=15,
+                                bgcolor='rgba(13, 17, 23, 0.8)',
+                                bordercolor='rgba(255, 255, 255, 0.2)',
+                                borderwidth=1
+                            )
+                        ),
+                        showlegend=False
+                    ),
+                    row=2, col=2
+                )
+                
+                # Línea de regresión
+                z = np.polyfit(x_clean, y_clean, 1)
+                p = np.poly1d(z)
+                x_line = np.linspace(x_clean.min(), x_clean.max(), 100)
+                
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_line,
+                        y=p(x_line),
+                        mode='lines',
+                        line=dict(color='#FF6B6B', width=2.5, dash='dash'),
+                        showlegend=False
+                    ),
+                    row=2, col=2
+                )
+                
+                # Línea horizontal en cero
+                fig.add_hline(y=0, line=dict(color='rgba(255, 255, 255, 0.2)', width=1), row=2, col=2)
+    
+    # ACTUALIZAR DISEÑO
     fig.update_layout(
         template="plotly_dark",
-        height=1000,
+        height=800,
         title={
-            'text': f"<b>{indicator_name}</b> <span style='font-size:14px; color:#808080;'>| {return_days}-Day Return Analysis</span>",
+            'text': f"<b>{indicator_name}</b> <span style='font-size:14px; color:#808080;'>| Análisis de Retornos a {return_days} Días</span>",
             'font': {'size': 24, 'color': '#f0f0f0', 'family': 'Inter'},
             'x': 0.5,
             'xanchor': 'center'
         },
         paper_bgcolor='#0D1117',
         plot_bgcolor='#161B22',
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.15,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=10)
-        ),
+        showlegend=False,
         font=dict(color='#C9D1D9', family='Inter', size=11),
-        margin=dict(t=100, b=100, l=80, r=80)
+        margin=dict(t=80, b=60, l=60, r=120)
     )
     
-    # Update axes styling
+    # Actualizar estilo de ejes
     fig.update_xaxes(
         gridcolor='#30363D',
         showgrid=True,
         zeroline=False,
         linecolor='#30363D',
-        tickfont=dict(size=10)
+        tickfont=dict(size=10, color='#C9D1D9')
     )
     fig.update_yaxes(
         gridcolor='#30363D',
         showgrid=True,
         zeroline=False,
         linecolor='#30363D',
-        tickfont=dict(size=10)
+        tickfont=dict(size=10, color='#C9D1D9')
     )
     
-    # Update specific axes labels
-    fig.update_xaxes(title_text="Value", row=1, col=1)
-    fig.update_yaxes(title_text="Density", row=1, col=1)
-    fig.update_xaxes(title_text="Percentile", row=1, col=2)
-    fig.update_yaxes(title_text=f"Returns ({return_days}d) %", row=1, col=2)
-    fig.update_xaxes(title_text="Date", row=2, col=1)
-    fig.update_yaxes(title_text="Correlation", row=2, col=1)
-    fig.update_xaxes(title_text="Indicator Value", row=2, col=2)
-    fig.update_yaxes(title_text=f"Returns ({return_days}d) %", row=2, col=2)
-    fig.update_xaxes(title_text="Quantile", row=3, col=1)
-    fig.update_yaxes(title_text=f"Returns ({return_days}d) %", row=3, col=1)
-    fig.update_xaxes(title_text="Date", row=3, col=2)
-    fig.update_yaxes(title_text="Cumulative Return %", row=3, col=2)
+    # Etiquetas específicas de ejes
+    fig.update_xaxes(title_text="<b>Valor</b>", row=1, col=1, title_font=dict(size=11))
+    fig.update_yaxes(title_text="<b>Densidad</b>", row=1, col=1, title_font=dict(size=11))
+    fig.update_xaxes(title_text="<b>Percentil</b>", row=1, col=2, title_font=dict(size=11))
+    fig.update_yaxes(title_text=f"<b>Retornos ({return_days}d) %</b>", row=1, col=2, title_font=dict(size=11))
+    fig.update_xaxes(title_text="<b>Fecha</b>", row=2, col=1, title_font=dict(size=11))
+    fig.update_yaxes(title_text="<b>Correlación</b>", row=2, col=1, title_font=dict(size=11))
+    fig.update_xaxes(title_text="<b>Valor del Indicador</b>", row=2, col=2, title_font=dict(size=11))
+    fig.update_yaxes(title_text=f"<b>Retornos ({return_days}d) %</b>", row=2, col=2, title_font=dict(size=11))
     
     return fig
 
-# ===================== MAIN APPLICATION =====================
+# ===================== APLICACIÓN PRINCIPAL =====================
 def main():
-    # Header
+    # Encabezado
     st.markdown("""
-        <h1 class='main-header'>Quantitative Analysis Platform</h1>
+        <h1 class='main-header'>Plataforma de Análisis Cuantitativo</h1>
         <p class='sub-header'>
-            {total} TECHNICAL INDICATORS · MULTI-PERIOD TESTING · PERCENTILE ANALYSIS
+            {total} INDICADORES TÉCNICOS · PRUEBA MULTI-PERIODO · ANÁLISIS PERCENTIL
         </p>
     """.format(total=TechnicalIndicators.get_total_count()), unsafe_allow_html=True)
     
-    # Initialize session state
+    # Inicializar estado de sesión
     if 'analysis_done' not in st.session_state:
         st.session_state.analysis_done = False
         st.session_state.returns_data = None
@@ -706,97 +1001,114 @@ def main():
         st.session_state.data = None
         st.session_state.summary = None
     
-    # Main Configuration
+    # Configuración Principal
     st.markdown("<div class='config-section'>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'>Data Configuration</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>Configuración de Datos</div>", unsafe_allow_html=True)
     
-    col1, col2, col3, col4 = st.columns([2, 1.5, 1, 1])
+    col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
     
     with col1:
-        ticker = st.text_input("TICKER", value="SPY", help="Stock symbol to analyze")
+        ticker = st.text_input("SÍMBOLO", value="SPY", help="Símbolo bursátil a analizar")
     
     with col2:
         period_option = st.selectbox(
-            "PERIOD",
+            "PERÍODO",
             ["1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"],
-            index=4  # 2y default
+            index=4,  # 2y por defecto
+            format_func=lambda x: {
+                "1mo": "1 Mes", "3mo": "3 Meses", "6mo": "6 Meses",
+                "1y": "1 Año", "2y": "2 Años", "5y": "5 Años",
+                "10y": "10 Años", "max": "Máximo"
+            }.get(x, x)
         )
     
     with col3:
-        return_days = st.number_input("RETURN DAYS", value=5, min_value=1, max_value=30)
+        col3a, col3b = st.columns(2)
+        with col3a:
+            min_return_days = st.number_input("DÍAS MÍN", value=1, min_value=1, max_value=30)
+        with col3b:
+            max_return_days = st.number_input("DÍAS MÁX", value=10, min_value=1, max_value=30)
+        
+        if max_return_days < min_return_days:
+            st.error("Los días máximos deben ser mayores o iguales a los días mínimos")
     
     with col4:
         quantiles = st.number_input("PERCENTILES", value=10, min_value=5, max_value=20, step=5)
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Period Range Configuration
+    # Configuración de Rango de Períodos
     st.markdown("<div class='config-section'>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'>Period Range Configuration</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>Configuración de Rango de Períodos</div>", unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
     
     with col1:
-        min_period = st.number_input("MIN", value=5, min_value=2, max_value=500)
+        min_period = st.number_input("MÍN", value=5, min_value=2, max_value=500)
     
     with col2:
-        max_period = st.number_input("MAX", value=50, min_value=5, max_value=500)
+        max_period = st.number_input("MÁX", value=50, min_value=5, max_value=500)
     
     with col3:
-        step_period = st.number_input("STEP", value=5, min_value=1, max_value=50)
+        step_period = st.number_input("PASO", value=5, min_value=1, max_value=50)
     
     with col4:
         periods_to_test = list(range(min_period, max_period + 1, step_period))
         st.markdown(f"""
             <div class="info-badge">
-                Testing periods: {', '.join(map(str, periods_to_test))}
+                Períodos a probar: {', '.join(map(str, periods_to_test))}
             </div>
         """, unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Indicator Selection
+    # Selección de Indicadores
     st.markdown("<div class='config-section'>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'>Indicator Selection</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>Selección de Indicadores</div>", unsafe_allow_html=True)
     
     col1, col2 = st.columns([1, 3])
     
     with col1:
         select_mode = st.radio(
-            "MODE",
-            ["Presets", "Categories", "All"]
+            "MODO",
+            ["Presets", "Categorías", "Todo"],
+            format_func=lambda x: {
+                "Presets": "Configuraciones", 
+                "Categorías": "Categorías", 
+                "Todo": "Todos"
+            }.get(x, x)
         )
     
     with col2:
         if select_mode == "Presets":
             preset = st.selectbox(
-                "PRESET",
-                ["Essential (30 indicators)", 
-                 "Extended (60 indicators)", 
-                 "Complete (100 indicators)", 
-                 "Everything (158+ indicators)"]
+                "CONFIGURACIÓN",
+                ["Esencial (30 indicadores)", 
+                 "Extendido (60 indicadores)", 
+                 "Completo (100 indicadores)", 
+                 "Todo (158+ indicadores)"]
             )
             
-            if "Essential" in preset:
-                selected_categories = ["Overlaps", "Momentum"][:1]
-            elif "Extended" in preset:
-                selected_categories = ["Momentum", "Volatility", "Volume", "Overlaps"]
-            elif "Complete" in preset:
+            if "Esencial" in preset:
+                selected_categories = ["Superposición", "Momentum"][:1]
+            elif "Extendido" in preset:
+                selected_categories = ["Momentum", "Volatilidad", "Volumen", "Superposición"]
+            elif "Completo" in preset:
                 selected_categories = list(TechnicalIndicators.CATEGORIES.keys())[:7]
             else:
-                selected_categories = ["ALL"]
+                selected_categories = ["TODO"]
         
-        elif select_mode == "Categories":
+        elif select_mode == "Categorías":
             selected_categories = st.multiselect(
-                "SELECT CATEGORIES",
+                "SELECCIONAR CATEGORÍAS",
                 list(TechnicalIndicators.CATEGORIES.keys()),
-                default=["Momentum", "Overlaps"]
+                default=["Momentum", "Superposición"]
             )
         else:
-            selected_categories = ["ALL"]
+            selected_categories = ["TODO"]
     
-    # Count indicators
-    if "ALL" in selected_categories:
+    # Contar indicadores
+    if "TODO" in selected_categories:
         indicator_count = TechnicalIndicators.get_total_count()
     else:
         indicator_count = sum(
@@ -805,41 +1117,42 @@ def main():
             if cat in TechnicalIndicators.CATEGORIES
         )
     
-    # Calculate total
+    # Calcular total
     total_with_periods = sum(
         len(periods_to_test) if TechnicalIndicators.needs_period(ind) else 1
-        for cat in (["ALL"] if "ALL" in selected_categories else selected_categories)
+        for cat in (["TODO"] if "TODO" in selected_categories else selected_categories)
         for ind in (TechnicalIndicators.ALL_INDICATORS + TechnicalIndicators.CANDLE_PATTERNS 
-                   if cat == "ALL" 
+                   if cat == "TODO" 
                    else TechnicalIndicators.CATEGORIES.get(cat, []))
     )
     
     st.markdown(f"""
         <div class="info-badge">
-            {indicator_count} indicators × {len(periods_to_test)} periods = {total_with_periods} calculations
+            {indicator_count} indicadores × {len(periods_to_test)} períodos = {total_with_periods} cálculos
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Analyze Button
+    # Botón Analizar
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([2, 1, 2])
     with col2:
         analyze_button = st.button(
-            "ANALYZE",
+            "ANALIZAR",
             use_container_width=True,
             type="primary"
         )
     
-    # Analysis
-    if analyze_button:
-        with st.spinner('Processing indicators...'):
+    # Análisis
+    if analyze_button and max_return_days >= min_return_days:
+        with st.spinner('Procesando indicadores...'):
             returns_data, indicators, data, summary = calculate_all_indicators(
                 ticker,
                 period_option,
                 quantiles,
-                return_days,
+                min_return_days,
+                max_return_days,
                 periods_to_test,
                 selected_categories
             )
@@ -851,7 +1164,7 @@ def main():
                 st.session_state.data = data
                 st.session_state.summary = summary
     
-    # Results
+    # Resultados
     if st.session_state.analysis_done:
         returns_data = st.session_state.returns_data
         indicators = st.session_state.indicators
@@ -860,60 +1173,69 @@ def main():
         
         st.markdown("<hr>", unsafe_allow_html=True)
         
-        # Metrics
+        # Métricas
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("INDICATORS", summary['indicators_count'])
+            st.metric("INDICADORES", summary['indicators_count'])
         with col2:
-            st.metric("SUCCESS RATE", f"{(summary['successful']/summary['total_attempted']*100):.1f}%")
+            st.metric("TASA DE ÉXITO", f"{(summary['successful']/summary['total_attempted']*100):.1f}%")
         with col3:
-            st.metric("DATA POINTS", summary['data_points'])
+            st.metric("PUNTOS DE DATOS", summary['data_points'])
         with col4:
-            st.metric("DATE RANGE", summary['date_range'].split(' to ')[0])
+            st.metric("RANGO DE FECHAS", summary['date_range'].split(' a ')[0])
         
-        # Analysis Tabs
-        tab1, tab2, tab3 = st.tabs(["📊 ANALYSIS", "🏆 PERFORMANCE", "💾 EXPORT"])
+        # Pestañas de Análisis
+        tab1, tab2, tab3 = st.tabs(["📊 ANÁLISIS", "🏆 RENDIMIENTO", "💾 EXPORTAR"])
         
         with tab1:
             col1, col2 = st.columns([3, 1])
             with col1:
                 selected_indicator = st.selectbox(
-                    "SELECT INDICATOR",
+                    "SELECCIONAR INDICADOR",
                     sorted(indicators.columns)
                 )
             with col2:
                 return_period = st.number_input(
-                    "DAYS",
-                    min_value=1,
-                    max_value=return_days,
-                    value=min(5, return_days)
+                    "DÍAS DE RETORNO",
+                    min_value=summary['min_return_days'],
+                    max_value=summary['max_return_days'],
+                    value=min(5, summary['max_return_days'])
                 )
             
             if selected_indicator:
                 fig = create_percentile_plot(
-                indicators, returns_data, data,
-                selected_indicator, return_period, quantiles  # Add this parameter
-            )
+                    indicators, returns_data, data,
+                    selected_indicator, return_period, quantiles
+                )
                 
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
         
         with tab2:
-            # Performance analysis
+            # Análisis de rendimiento
+            st.markdown("### Análisis de Rendimiento por Indicador")
+            
+            # Selector de días para el análisis
+            perf_days = st.selectbox(
+                "DÍAS PARA ANÁLISIS DE RENDIMIENTO",
+                list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
+                index=min(4, summary['max_return_days'] - summary['min_return_days'])
+            )
+            
             performance = []
             for ind_col in indicators.columns:
                 if ind_col in returns_data:
-                    ret_col = f'returns_{return_days}_days_mean'
-                    if ret_col in returns_data[ind_col].columns:
+                    ret_col = f'retornos_{perf_days}_dias_mean'
+                    if ret_col in returns_data[ind_col]:
                         values = returns_data[ind_col][ret_col]
                         if len(values) > 1:
                             spread = values.iloc[-1] - values.iloc[0]
                             performance.append({
-                                'Indicator': ind_col,
+                                'Indicador': ind_col,
                                 'Spread (%)': spread,
-                                'Top Percentile (%)': values.iloc[-1],
-                                'Bottom Percentile (%)': values.iloc[0],
-                                'Sharpe': spread / (returns_data[ind_col][f'returns_{return_days}_days_std'].mean() + 1e-8)
+                                'Percentil Superior (%)': values.iloc[-1],
+                                'Percentil Inferior (%)': values.iloc[0],
+                                'Sharpe': spread / (returns_data[ind_col][f'retornos_{perf_days}_dias_std'].mean() + 1e-8)
                             })
             
             if performance:
@@ -923,8 +1245,8 @@ def main():
                 st.dataframe(
                     perf_df.style.format({
                         'Spread (%)': '{:.2f}',
-                        'Top Percentile (%)': '{:.2f}',
-                        'Bottom Percentile (%)': '{:.2f}',
+                        'Percentil Superior (%)': '{:.2f}',
+                        'Percentil Inferior (%)': '{:.2f}',
                         'Sharpe': '{:.3f}'
                     }).background_gradient(
                         subset=['Spread (%)'],
@@ -937,26 +1259,28 @@ def main():
                 )
         
         with tab3:
+            st.markdown("### Opciones de Exportación")
+            
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button("GENERATE PERFORMANCE CSV"):
+                if st.button("GENERAR CSV DE RENDIMIENTO"):
                     if performance:
                         csv = perf_df.to_csv(index=False)
                         st.download_button(
-                            "📥 Download Performance",
+                            "📥 Descargar Rendimiento",
                             data=csv,
-                            file_name=f"{ticker}_performance_{datetime.now().strftime('%Y%m%d')}.csv",
+                            file_name=f"{ticker}_rendimiento_{datetime.now().strftime('%Y%m%d')}.csv",
                             mime="text/csv"
                         )
             
             with col2:
-                if st.button("GENERATE INDICATORS CSV"):
+                if st.button("GENERAR CSV DE INDICADORES"):
                     csv = indicators.to_csv()
                     st.download_button(
-                        "📥 Download Indicators",
+                        "📥 Descargar Indicadores",
                         data=csv,
-                        file_name=f"{ticker}_indicators_{datetime.now().strftime('%Y%m%d')}.csv",
+                        file_name=f"{ticker}_indicadores_{datetime.now().strftime('%Y%m%d')}.csv",
                         mime="text/csv"
                     )
 
