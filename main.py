@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 
 # ===================== CONFIGURACIÓN DE PÁGINA =====================
 st.set_page_config(
-    page_title="Plataforma de Análisis Cuantitativo",
+    page_title="Rule-Extraction Platform",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
