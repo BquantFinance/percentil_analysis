@@ -862,14 +862,16 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                             line=dict(width=0),
                             showscale=True,
                             colorbar=dict(
-                                title="Density",
-                                titlefont=dict(size=10),
-                                tickfont=dict(size=9),
-                                len=0.5,
-                                y=0.5,
-                                yanchor='middle',
-                                thickness=10
-                            )
+                            title=dict(
+                                text="Density",
+                                font=dict(size=10)
+                            ),
+                            tickfont=dict(size=9),
+                            len=0.5,
+                            y=0.5,
+                            yanchor='middle',
+                            thickness=10
+                        )
                         ),
                         showlegend=False
                     ),
