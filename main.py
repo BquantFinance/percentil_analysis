@@ -404,7 +404,7 @@ class TechnicalIndicators:
 
 # ===================== CALCULATION FUNCTIONS =====================
 @st.cache_data
-def download_data(ticker: str, period: str, start_date: str = None, end_date: str = None) -> Optional[pd.DataFrame]:
+def download_data(ticker: str, period: str, start_date: str = None, end_date: str = None, multi_level_index=False) -> Optional[pd.DataFrame]:
     """Download historical data using yfinance period or date range"""
     try:
         if period != "custom":
