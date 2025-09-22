@@ -632,56 +632,152 @@ def calculate_all_indicators(ticker: str, period: str, quantiles: int, return_da
     return returns_data, indicators, data, summary
 
 def create_percentile_plot(indicators, returns_data, data, indicator_name, return_days):
-    """Create analysis plots with dark theme"""
+    """Create enhanced analysis plots with beautiful dark theme aesthetics"""
     
     if indicator_name not in indicators.columns or indicator_name not in returns_data:
         return None
     
     fig = make_subplots(
-        rows=2, cols=2,
+        rows=3, cols=2,
         subplot_titles=(
-            'Distribution', 'Returns by Percentile',
-            'Rolling Correlation', 'Scatter Analysis'
+            '<b>Distribution & Statistics</b>', '<b>Returns by Percentile</b>',
+            '<b>Rolling Correlation (126-day)</b>', '<b>Scatter Analysis with Density</b>',
+            '<b>Box Plot by Quantile</b>', '<b>Cumulative Returns</b>'
         ),
-        specs=[[{"type": "histogram"}, {"type": "bar"}],
-               [{"type": "scatter"}, {"type": "scatter"}]],
-        vertical_spacing=0.12,
-        horizontal_spacing=0.12
+        specs=[
+            [{"type": "histogram"}, {"type": "bar"}],
+            [{"type": "scatter"}, {"type": "scatter"}],
+            [{"type": "box"}, {"type": "scatter"}]
+        ],
+        vertical_spacing=0.08,
+        horizontal_spacing=0.12,
+        row_heights=[0.35, 0.35, 0.3]
     )
     
-    # Distribution
+    # Color palette
+    gradient_colors = ['#FF6B6B', '#FE8C68', '#FEAA68', '#FEC868', '#FFE66D', 
+                       '#C7E66D', '#8FE66D', '#5FE668', '#4FC668', '#51CF66']
+    
+    # 1. ENHANCED DISTRIBUTION WITH KDE
     hist_data = indicators[indicator_name].dropna()
-    fig.add_trace(
-        go.Histogram(
-            x=hist_data,
-            nbinsx=50,
-            marker=dict(color='#808080', opacity=0.7),
-            showlegend=False
-        ),
-        row=1, col=1
-    )
     
-    # Returns by percentile
+    if len(hist_data) > 0:
+        # Calculate statistics
+        mean_val = hist_data.mean()
+        median_val = hist_data.median()
+        std_val = hist_data.std()
+        q25 = hist_data.quantile(0.25)
+        q75 = hist_data.quantile(0.75)
+        
+        # Histogram with more bins
+        fig.add_trace(
+            go.Histogram(
+                x=hist_data,
+                nbinsx=100,
+                marker=dict(
+                    color='rgba(100, 150, 255, 0.3)',
+                    line=dict(color='rgba(100, 150, 255, 0.5)', width=0.5)
+                ),
+                name='Distribution',
+                showlegend=False,
+                histnorm='probability density'
+            ),
+            row=1, col=1
+        )
+        
+        # Add KDE overlay
+        from scipy.stats import gaussian_kde
+        kde = gaussian_kde(hist_data.values)
+        x_range = np.linspace(hist_data.min(), hist_data.max(), 200)
+        kde_values = kde(x_range)
+        
+        fig.add_trace(
+            go.Scatter(
+                x=x_range,
+                y=kde_values,
+                mode='lines',
+                line=dict(color='#FFE66D', width=2.5),
+                name='KDE',
+                showlegend=False
+            ),
+            row=1, col=1
+        )
+        
+        # Add vertical lines for statistics
+        for val, color, name, dash in [
+            (mean_val, '#51CF66', 'Mean', 'solid'),
+            (median_val, '#FF6B6B', 'Median', 'dash'),
+            (q25, '#808080', 'Q1', 'dot'),
+            (q75, '#808080', 'Q3', 'dot')
+        ]:
+            fig.add_vline(
+                x=val, 
+                line=dict(color=color, width=1.5, dash=dash),
+                annotation_text=f"{name}: {val:.2f}",
+                annotation_position="top",
+                annotation_font_color=color,
+                annotation_font_size=10,
+                row=1, col=1
+            )
+    
+    # 2. ENHANCED RETURNS BY PERCENTILE
     returns_col = f'returns_{return_days}_days_mean'
     if returns_col in returns_data[indicator_name].columns:
         returns_values = returns_data[indicator_name][returns_col]
         x_labels = [f'P{i+1}' for i in range(len(returns_values))]
         
-        colors = ['#ff6b6b' if val < 0 else '#51cf66' for val in returns_values]
+        # Use gradient colors based on value
+        max_abs = max(abs(returns_values.max()), abs(returns_values.min()))
+        normalized_values = [(val + max_abs) / (2 * max_abs) for val in returns_values]
+        colors = [gradient_colors[int(norm * (len(gradient_colors) - 1))] for norm in normalized_values]
+        
+        # Add error bars if std available
+        std_col = f'returns_{return_days}_days_std'
+        error_y = None
+        if std_col in returns_data[indicator_name].columns:
+            error_y = dict(
+                type='data',
+                array=returns_data[indicator_name][std_col],
+                visible=True,
+                color='rgba(255, 255, 255, 0.3)',
+                thickness=1.5,
+                width=4
+            )
         
         fig.add_trace(
             go.Bar(
                 x=x_labels,
                 y=returns_values,
-                marker=dict(color=colors),
+                marker=dict(
+                    color=colors,
+                    line=dict(color='rgba(255, 255, 255, 0.2)', width=1)
+                ),
                 text=[f'{val:.2f}%' for val in returns_values],
                 textposition='outside',
+                textfont=dict(size=10),
+                error_y=error_y,
+                showlegend=False
+            ),
+            row=1, col=2
+        )
+        
+        # Add trend line
+        x_numeric = list(range(len(returns_values)))
+        z = np.polyfit(x_numeric, returns_values, 1)
+        p = np.poly1d(z)
+        
+        fig.add_trace(
+            go.Scatter(
+                x=x_labels,
+                y=p(x_numeric),
+                mode='lines',
+                line=dict(color='rgba(255, 255, 255, 0.5)', width=2, dash='dash'),
                 showlegend=False
             ),
             row=1, col=2
         )
     
-    # Rolling correlation
+    # 3. ENHANCED ROLLING CORRELATION
     if f'returns_{return_days}_days' in data.columns:
         common_idx = data.index.intersection(indicators[indicator_name].index)
         if len(common_idx) > 126:
@@ -690,20 +786,44 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
             
             rolling_corr = aligned_returns.rolling(126).corr(aligned_indicator).dropna()
             
+            # Create gradient fill
             fig.add_trace(
                 go.Scatter(
                     x=rolling_corr.index,
                     y=rolling_corr.values,
                     mode='lines',
-                    line=dict(color='#a0a0a0', width=2),
+                    line=dict(color='#4FC668', width=0),
+                    fill='tozeroy',
+                    fillcolor='rgba(79, 198, 104, 0.2)',
                     showlegend=False
                 ),
                 row=2, col=1
             )
             
-            fig.add_hline(y=0, line=dict(color='#606060', width=1, dash='dash'), row=2, col=1)
+            # Add main line
+            fig.add_trace(
+                go.Scatter(
+                    x=rolling_corr.index,
+                    y=rolling_corr.values,
+                    mode='lines',
+                    line=dict(color='#4FC668', width=2),
+                    showlegend=False
+                ),
+                row=2, col=1
+            )
+            
+            # Add zero line
+            fig.add_hline(y=0, line=dict(color='rgba(255, 255, 255, 0.3)', width=1), row=2, col=1)
+            
+            # Add correlation bands
+            for y, alpha in [(0.5, 0.1), (-0.5, 0.1), (0.75, 0.05), (-0.75, 0.05)]:
+                fig.add_hline(
+                    y=y,
+                    line=dict(color=f'rgba(255, 255, 255, {alpha})', width=1, dash='dot'),
+                    row=2, col=1
+                )
     
-    # Scatter plot
+    # 4. ENHANCED SCATTER PLOT WITH DENSITY
     if f'returns_{return_days}_days' in data.columns:
         common_idx = data.index.intersection(indicators[indicator_name].index)
         if len(common_idx) > 0:
@@ -715,38 +835,173 @@ def create_percentile_plot(indicators, returns_data, data, indicator_name, retur
                 x_clean = x_data[mask]
                 y_clean = y_data[mask]
                 
+                # Calculate point density for coloring
+                from scipy.stats import gaussian_kde
+                try:
+                    xy = np.vstack([x_clean, y_clean])
+                    density = gaussian_kde(xy)(xy)
+                except:
+                    density = y_clean
+                
                 fig.add_trace(
                     go.Scattergl(
                         x=x_clean,
                         y=y_clean,
                         mode='markers',
                         marker=dict(
-                            size=3,
-                            color=y_clean,
-                            colorscale=[[0, '#ff6b6b'], [0.5, '#808080'], [1, '#51cf66']],
-                            opacity=0.6,
-                            showscale=False
+                            size=4,
+                            color=density,
+                            colorscale=[
+                                [0, '#0D1117'],
+                                [0.25, '#1F2937'],
+                                [0.5, '#6366F1'],
+                                [0.75, '#A78BFA'],
+                                [1, '#FDE68A']
+                            ],
+                            opacity=0.8,
+                            line=dict(width=0),
+                            showscale=True,
+                            colorbar=dict(
+                                title="Density",
+                                titlefont=dict(size=10),
+                                tickfont=dict(size=9),
+                                len=0.5,
+                                y=0.5,
+                                yanchor='middle',
+                                thickness=10
+                            )
                         ),
                         showlegend=False
                     ),
                     row=2, col=2
                 )
+                
+                # Add regression line
+                z = np.polyfit(x_clean, y_clean, 1)
+                p = np.poly1d(z)
+                x_line = np.linspace(x_clean.min(), x_clean.max(), 100)
+                
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_line,
+                        y=p(x_line),
+                        mode='lines',
+                        line=dict(color='#FF6B6B', width=2, dash='dash'),
+                        showlegend=False
+                    ),
+                    row=2, col=2
+                )
     
+    # 5. BOX PLOT BY QUANTILE
+    if f'returns_{return_days}_days' in data.columns:
+        temp_df = pd.DataFrame({
+            'indicator': indicators[indicator_name],
+            'returns': data[f'returns_{return_days}_days']
+        }).dropna()
+        
+        if len(temp_df) >= quantiles * 2:
+            temp_df['quantile'] = pd.qcut(temp_df['indicator'], q=min(quantiles, 20), duplicates='drop')
+            
+            for i, (name, group) in enumerate(temp_df.groupby('quantile')):
+                color_idx = int((i / (len(temp_df.groupby('quantile')) - 1)) * (len(gradient_colors) - 1))
+                
+                fig.add_trace(
+                    go.Box(
+                        y=group['returns'],
+                        name=f'Q{i+1}',
+                        marker=dict(
+                            color=gradient_colors[color_idx],
+                            opacity=0.7
+                        ),
+                        boxmean='sd',
+                        showlegend=False
+                    ),
+                    row=3, col=1
+                )
+    
+    # 6. CUMULATIVE RETURNS
+    if f'returns_{return_days}_days' in data.columns:
+        temp_df = pd.DataFrame({
+            'indicator': indicators[indicator_name],
+            'returns': data[f'returns_{return_days}_days'],
+            'date': data.index
+        }).dropna()
+        
+        if len(temp_df) >= quantiles:
+            temp_df['quantile'] = pd.qcut(temp_df['indicator'], q=min(quantiles, 5), duplicates='drop')
+            
+            for i, (name, group) in enumerate(temp_df.groupby('quantile')):
+                group = group.sort_values('date')
+                cumulative_returns = (1 + group['returns'] / 100).cumprod() - 1
+                
+                color_idx = int((i / max(len(temp_df.groupby('quantile')) - 1, 1)) * (len(gradient_colors) - 1))
+                
+                fig.add_trace(
+                    go.Scatter(
+                        x=group['date'],
+                        y=cumulative_returns * 100,
+                        mode='lines',
+                        line=dict(color=gradient_colors[color_idx], width=2),
+                        name=f'Q{i+1}',
+                        showlegend=True
+                    ),
+                    row=3, col=2
+                )
+    
+    # UPDATE LAYOUT
     fig.update_layout(
         template="plotly_dark",
-        height=700,
+        height=1000,
         title={
-            'text': indicator_name,
-            'font': {'size': 18, 'color': '#f0f0f0', 'family': 'Inter'}
+            'text': f"<b>{indicator_name}</b> <span style='font-size:14px; color:#808080;'>| {return_days}-Day Return Analysis</span>",
+            'font': {'size': 24, 'color': '#f0f0f0', 'family': 'Inter'},
+            'x': 0.5,
+            'xanchor': 'center'
         },
-        paper_bgcolor='#0f0f0f',
-        plot_bgcolor='#1a1a1a',
-        showlegend=False,
-        font=dict(color='#d0d0d0', family='Inter', size=11)
+        paper_bgcolor='#0D1117',
+        plot_bgcolor='#161B22',
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.15,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
+        ),
+        font=dict(color='#C9D1D9', family='Inter', size=11),
+        margin=dict(t=100, b=100, l=80, r=80)
     )
     
-    fig.update_xaxes(gridcolor='#2a2a2a', showgrid=True, zeroline=False)
-    fig.update_yaxes(gridcolor='#2a2a2a', showgrid=True, zeroline=False)
+    # Update axes styling
+    fig.update_xaxes(
+        gridcolor='#30363D',
+        showgrid=True,
+        zeroline=False,
+        linecolor='#30363D',
+        tickfont=dict(size=10)
+    )
+    fig.update_yaxes(
+        gridcolor='#30363D',
+        showgrid=True,
+        zeroline=False,
+        linecolor='#30363D',
+        tickfont=dict(size=10)
+    )
+    
+    # Update specific axes labels
+    fig.update_xaxes(title_text="Value", row=1, col=1)
+    fig.update_yaxes(title_text="Density", row=1, col=1)
+    fig.update_xaxes(title_text="Percentile", row=1, col=2)
+    fig.update_yaxes(title_text=f"Returns ({return_days}d) %", row=1, col=2)
+    fig.update_xaxes(title_text="Date", row=2, col=1)
+    fig.update_yaxes(title_text="Correlation", row=2, col=1)
+    fig.update_xaxes(title_text="Indicator Value", row=2, col=2)
+    fig.update_yaxes(title_text=f"Returns ({return_days}d) %", row=2, col=2)
+    fig.update_xaxes(title_text="Quantile", row=3, col=1)
+    fig.update_yaxes(title_text=f"Returns ({return_days}d) %", row=3, col=1)
+    fig.update_xaxes(title_text="Date", row=3, col=2)
+    fig.update_yaxes(title_text="Cumulative Return %", row=3, col=2)
     
     return fig
 
