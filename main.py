@@ -1388,20 +1388,14 @@ def main():
                     use_container_width=True,
                     height=600
                 )
-        
+        #
         with tab3:
-            st.markdown("### 🎯 Sistema de Reglas de Trading IS/OOS")
+            st.markdown("### 🎯 Universal Trading Rules System")
             
+            # Main configuration
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                holding_period = st.selectbox(
-                    "PERÍODO TENENCIA",
-                    list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
-                    index=min(4, summary['max_return_days'] - summary['min_return_days'])
-                )
-            
-            with col2:
                 sample_split = st.slider(
                     "% IN-SAMPLE",
                     min_value=50,
@@ -1410,64 +1404,72 @@ def main():
                     step=5
                 )
             
-            with col3:
-                percentile_thresholds = st.multiselect(
-                    "PERCENTILES",
-                    [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 75, 80, 85, 90, 95],
-                    default=[10, 25, 50, 75, 90]
-                )
-            
-            with col4:
-                min_signals = st.number_input(
-                    "MÍN SEÑALES",
-                    min_value=10,
-                    max_value=100,
-                    value=30
-                )
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                max_indicators_rules = st.number_input(
-                    "MÁX INDICADORES",
-                    min_value=10,
-                    max_value=100,
-                    value=30,
-                    help="Limitar indicadores para acelerar"
-                )
-            
             with col2:
-                initial_capital = st.number_input(
-                    "CAPITAL ($)",
-                    min_value=1000,
-                    max_value=1000000,
-                    value=10000,
-                    step=1000
+                holding_period = st.selectbox(
+                    "HOLDING PERIOD (days)",
+                    list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
+                    index=min(4, summary['max_return_days'] - summary['min_return_days'])
                 )
             
             with col3:
-                commission = st.number_input(
-                    "COMISIÓN (%)",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=0.1,
-                    step=0.01
-                ) / 100
+                min_signals = st.number_input(
+                    "MIN SIGNALS",
+                    min_value=10,
+                    max_value=100,
+                    value=20,
+                    help="Minimum signals for valid rule"
+                )
             
             with col4:
                 max_correlation = st.slider(
-                    "MÁX CORR",
-                    min_value=0.3,
-                    max_value=0.9,
+                    "MAX CORRELATION",
+                    min_value=0.2,
+                    max_value=0.8,
                     value=0.5,
                     step=0.1,
-                    help="Correlación máxima entre reglas"
+                    help="Between selected rules"
                 )
             
-            if st.button("🚀 EJECUTAR ANÁLISIS DE REGLAS", use_container_width=True):
-                with st.spinner("Generando y evaluando reglas de trading..."):
+            # Advanced settings
+            with st.expander("⚙️ Advanced Settings"):
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    percentiles = st.multiselect(
+                        "PERCENTILES FOR THRESHOLDS",
+                        [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95],
+                        default=[10, 20, 30, 50, 70, 80, 90]
+                    )
+                
+                with col2:
+                    operators = st.multiselect(
+                        "OPERATORS",
+                        ['>', '<', '>=', '<='],
+                        default=['>', '<']
+                    )
+                
+                with col3:
+                    max_indicators_to_analyze = st.number_input(
+                        "MAX INDICATORS",
+                        min_value=5,
+                        max_value=100,
+                        value=20,
+                        help="Limit to speed up"
+                    )
+                
+                with col4:
+                    top_rules = st.number_input(
+                        "TOP RULES TO SELECT",
+                        min_value=3,
+                        max_value=20,
+                        value=10
+                    )
+            
+            # Run analysis button
+            if st.button("🚀 RUN ANALYSIS", use_container_width=True, type="primary"):
+                with st.spinner("Generating and testing all possible rules..."):
                     
-                    # Split IS/OOS
+                    # Split data
                     split_index = int(len(data) * sample_split / 100)
                     
                     in_sample_data = data.iloc[:split_index].copy()
@@ -1476,88 +1478,110 @@ def main():
                     in_sample_indicators = indicators.iloc[:split_index].copy()
                     out_sample_indicators = indicators.iloc[split_index:].copy()
                     
-                    st.info(f"📊 División de datos: {len(in_sample_data)} In-Sample | {len(out_sample_data)} Out-of-Sample")
+                    # Display split info
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.info(f"""
+                        **In-Sample**: {len(in_sample_data)} points
+                        {in_sample_data.index[0].strftime('%Y-%m-%d')} to {in_sample_data.index[-1].strftime('%Y-%m-%d')}
+                        """)
+                    with col2:
+                        st.info(f"""
+                        **Out-of-Sample**: {len(out_sample_data)} points
+                        {out_sample_data.index[0].strftime('%Y-%m-%d')} to {out_sample_data.index[-1].strftime('%Y-%m-%d')}
+                        """)
                     
-                    # Generar reglas
-                    engine = ImprovedTradingEngine()
+                    # Initialize engine
+                    engine = UniversalTradingEngine()
                     
-                    st.info("🔄 Generando reglas...")
-                    rules = engine.generate_rules_batch(
+                    # Generate rules
+                    st.markdown("#### 1️⃣ Generating Rules")
+                    all_rules = engine.generate_all_rules(
                         in_sample_indicators,
-                        percentile_thresholds,
-                        max_indicators_rules
+                        percentiles,
+                        operators,
+                        max_indicators_to_analyze
                     )
-                    st.success(f"✅ {len(rules)} reglas generadas")
+                    st.success(f"✅ Generated {len(all_rules)} rules")
                     
-                    # Evaluar IN-SAMPLE
-                    st.markdown("#### 📈 Evaluación In-Sample")
-                    is_results = engine.evaluate_rules_vectorized(
-                        rules,
+                    # Evaluate IN-SAMPLE
+                    st.markdown("#### 2️⃣ In-Sample Evaluation")
+                    is_results = engine.evaluate_rules_batch(
+                        all_rules,
                         in_sample_indicators,
                         in_sample_data,
-                        list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
+                        holding_period,
                         min_signals
                     )
                     
                     if not is_results.empty:
-                        # Top reglas IS
-                        st.markdown("##### Top 20 Reglas In-Sample")
-                        display_cols = ['rule_name', 'type', 'num_signals', f'return_{holding_period}d_mean', 
-                                      f'return_{holding_period}d_sharpe', f'return_{holding_period}d_win_rate']
-                        
-                        is_display = is_results[display_cols].head(20).copy()
-                        is_display.columns = ['Regla', 'Tipo', 'Señales', 'Retorno (%)', 'Sharpe', 'Win Rate (%)']
+                        # Show top rules
+                        st.markdown("##### Top 15 Rules (In-Sample)")
+                        display_df = is_results[['name', 'type', 'signals', 'cum_return', 'sharpe', 'profit_factor', 'max_dd']].head(15).copy()
+                        display_df.columns = ['Rule', 'Type', 'Signals', 'Cum Return %', 'Sharpe', 'Profit Factor', 'Max DD %']
                         
                         st.dataframe(
-                            is_display.style.format({
-                                'Retorno (%)': '{:.2f}',
-                                'Sharpe': '{:.3f}',
-                                'Win Rate (%)': '{:.1f}'
+                            display_df.style.format({
+                                'Cum Return %': '{:.1f}',
+                                'Sharpe': '{:.2f}',
+                                'Profit Factor': '{:.2f}',
+                                'Max DD %': '{:.1f}'
                             }).background_gradient(subset=['Sharpe'], cmap='RdYlGn'),
                             use_container_width=True,
                             height=400
                         )
                         
-                        # Evaluar OUT-OF-SAMPLE
-                        st.markdown("#### 📉 Evaluación Out-of-Sample")
-                        
-                        # Tomar mejores reglas no correlacionadas
-                        best_rules = engine.combine_non_correlated_rules(
+                        # Select best non-correlated rules
+                        st.markdown("#### 3️⃣ Rule Selection")
+                        best_rules = engine.select_best_rules(
                             is_results,
                             in_sample_indicators,
-                            max_correlation,
-                            10
+                            top_rules,
+                            max_correlation
                         )
                         
-                        st.info(f"📊 Seleccionadas {len(best_rules)} reglas no correlacionadas")
+                        st.success(f"✅ Selected {len(best_rules)} non-correlated rules")
                         
-                        # Evaluar OOS
-                        oos_results = engine.evaluate_rules_vectorized(
-                            best_rules,
+                        # Show selected rules
+                        with st.expander("📋 View Selected Rules"):
+                            for i, rule in enumerate(best_rules, 1):
+                                st.write(f"**{i}. {rule['name']}**")
+                                st.code(rule['rule'], language='python')
+                                st.write(f"Sharpe: {rule['sharpe']:.2f} | PF: {rule['profit_factor']:.2f} | Return: {rule['cum_return']:.1f}%")
+                                st.divider()
+                        
+                        # Evaluate OUT-OF-SAMPLE
+                        st.markdown("#### 4️⃣ Out-of-Sample Validation")
+                        
+                        # Convert best rules to format for evaluation
+                        oos_rules = [{'condition': r['rule'], 'name': r['name'], 'type': 'selected'} for r in best_rules]
+                        
+                        oos_results = engine.evaluate_rules_batch(
+                            oos_rules,
                             out_sample_indicators,
                             out_sample_data,
-                            list(range(summary['min_return_days'], summary['max_return_days'] + 1)),
-                            min_signals
+                            holding_period,
+                            min_signals=5  # Less restrictive for OOS
                         )
                         
                         if not oos_results.empty:
-                            # Comparación IS vs OOS
-                            st.markdown("##### 📊 Comparación In-Sample vs Out-of-Sample")
+                            # Create comparison table
+                            st.markdown("##### IS vs OOS Comparison")
                             
                             comparison_data = []
                             for rule in best_rules:
-                                is_row = is_results[is_results['rule_name'] == rule['name']]
-                                oos_row = oos_results[oos_results['rule_name'] == rule['name']]
+                                is_row = is_results[is_results['name'] == rule['name']]
+                                oos_row = oos_results[oos_results['name'] == rule['name']]
                                 
                                 if not is_row.empty and not oos_row.empty:
                                     comparison_data.append({
-                                        'Regla': rule['name'],
-                                        'Sharpe IS': is_row[f'return_{holding_period}d_sharpe'].iloc[0],
-                                        'Sharpe OOS': oos_row[f'return_{holding_period}d_sharpe'].iloc[0],
-                                        'Win Rate IS': is_row[f'return_{holding_period}d_win_rate'].iloc[0],
-                                        'Win Rate OOS': oos_row[f'return_{holding_period}d_win_rate'].iloc[0],
-                                        'Retorno IS': is_row[f'return_{holding_period}d_mean'].iloc[0],
-                                        'Retorno OOS': oos_row[f'return_{holding_period}d_mean'].iloc[0]
+                                        'Rule': rule['name'][:30] + '...',
+                                        'IS Sharpe': is_row['sharpe'].iloc[0],
+                                        'OOS Sharpe': oos_row['sharpe'].iloc[0],
+                                        'IS PF': is_row['profit_factor'].iloc[0],
+                                        'OOS PF': oos_row['profit_factor'].iloc[0],
+                                        'IS Return': is_row['cum_return'].iloc[0],
+                                        'OOS Return': oos_row['cum_return'].iloc[0]
                                     })
                             
                             if comparison_data:
@@ -1565,174 +1589,202 @@ def main():
                                 
                                 st.dataframe(
                                     comparison_df.style.format({
-                                        'Sharpe IS': '{:.3f}',
-                                        'Sharpe OOS': '{:.3f}',
-                                        'Win Rate IS': '{:.1f}',
-                                        'Win Rate OOS': '{:.1f}',
-                                        'Retorno IS': '{:.2f}',
-                                        'Retorno OOS': '{:.2f}'
-                                    }),
-                                    use_container_width=True
-                                )
-                                
-                                # BACKTEST COMPLETO
-                                st.markdown("#### 🚀 Backtest Completo")
-                                
-                                # Backtest IS
-                                is_portfolio, is_metrics = engine.comprehensive_backtest(
-                                    best_rules[:5],
-                                    in_sample_indicators,
-                                    in_sample_data,
-                                    initial_capital,
-                                    commission
-                                )
-                                
-                                # Backtest OOS
-                                oos_portfolio, oos_metrics = engine.comprehensive_backtest(
-                                    best_rules[:5],
-                                    out_sample_indicators,
-                                    out_sample_data,
-                                    initial_capital,
-                                    commission
-                                )
-                                
-                                # Backtest completo
-                                full_portfolio, full_metrics = engine.comprehensive_backtest(
-                                    best_rules[:5],
-                                    indicators,
-                                    data,
-                                    initial_capital,
-                                    commission
-                                )
-                                
-                                # Tabla de métricas
-                                st.markdown("##### 📊 Tabla de Métricas de Rendimiento")
-                                
-                                metrics_comparison = pd.DataFrame({
-                                    'Métrica': ['Retorno Total (%)', 'Retorno Anualizado (%)', 'Sharpe Ratio', 
-                                              'Sortino Ratio', 'Max Drawdown (%)', 'Profit Factor', 
-                                              'Win Rate (%)', 'Núm Trades', 'Calmar Ratio'],
-                                    'In-Sample': [
-                                        is_metrics['total_return'],
-                                        is_metrics['annualized_return'],
-                                        is_metrics['sharpe_ratio'],
-                                        is_metrics['sortino_ratio'],
-                                        is_metrics['max_drawdown'],
-                                        is_metrics['profit_factor'],
-                                        is_metrics['win_rate'],
-                                        is_metrics['num_trades'],
-                                        is_metrics['calmar_ratio']
-                                    ],
-                                    'Out-of-Sample': [
-                                        oos_metrics['total_return'],
-                                        oos_metrics['annualized_return'],
-                                        oos_metrics['sharpe_ratio'],
-                                        oos_metrics['sortino_ratio'],
-                                        oos_metrics['max_drawdown'],
-                                        oos_metrics['profit_factor'],
-                                        oos_metrics['win_rate'],
-                                        oos_metrics['num_trades'],
-                                        oos_metrics['calmar_ratio']
-                                    ],
-                                    'Completo': [
-                                        full_metrics['total_return'],
-                                        full_metrics['annualized_return'],
-                                        full_metrics['sharpe_ratio'],
-                                        full_metrics['sortino_ratio'],
-                                        full_metrics['max_drawdown'],
-                                        full_metrics['profit_factor'],
-                                        full_metrics['win_rate'],
-                                        full_metrics['num_trades'],
-                                        full_metrics['calmar_ratio']
-                                    ]
-                                })
-                                
-                                st.dataframe(
-                                    metrics_comparison.style.format({
-                                        'In-Sample': '{:.2f}',
-                                        'Out-of-Sample': '{:.2f}',
-                                        'Completo': '{:.2f}'
+                                        'IS Sharpe': '{:.2f}',
+                                        'OOS Sharpe': '{:.2f}',
+                                        'IS PF': '{:.2f}',
+                                        'OOS PF': '{:.2f}',
+                                        'IS Return': '{:.1f}',
+                                        'OOS Return': '{:.1f}'
                                     }).background_gradient(axis=1, cmap='RdYlGn'),
                                     use_container_width=True
                                 )
-                                
-                                # Gráfico de Equity Curve
-                                fig = go.Figure()
-                                
-                                fig.add_trace(
-                                    go.Scatter(
-                                        x=full_portfolio.index,
-                                        y=full_portfolio['equity'],
-                                        mode='lines',
-                                        name='Estrategia',
-                                        line=dict(color='#51CF66', width=2)
-                                    )
-                                )
-                                
-                                fig.add_trace(
-                                    go.Scatter(
-                                        x=full_portfolio.index,
-                                        y=initial_capital * full_portfolio['cumulative_market'],
-                                        mode='lines',
-                                        name='Buy & Hold',
-                                        line=dict(color='#808080', width=1.5, dash='dash')
-                                    )
-                                )
-                                
-                                # Marcar división IS/OOS
-                                fig.add_vline(
-                                    x=data.index[split_index],
-                                    line=dict(color='#FF6B6B', width=2, dash='dash'),
-                                    annotation_text="IN-SAMPLE | OUT-OF-SAMPLE",
-                                    annotation_position="top"
-                                )
-                                
-                                fig.update_layout(
-                                    height=600,
-                                    template="plotly_dark",
-                                    title="Curva de Equity - Estrategia vs Buy & Hold",
-                                    xaxis_title="Fecha",
-                                    yaxis_title="Capital ($)",
-                                    showlegend=True,
-                                    paper_bgcolor='#0D1117',
-                                    plot_bgcolor='#161B22'
-                                )
-                                
-                                st.plotly_chart(fig, use_container_width=True)
-                                
-                                # Métricas destacadas
-                                col1, col2, col3, col4 = st.columns(4)
-                                
-                                with col1:
-                                    st.metric(
-                                        "RETORNO TOTAL",
-                                        f"{full_metrics['total_return']:.2f}%",
-                                        f"{full_metrics['excess_return']:.2f}%"
-                                    )
-                                
-                                with col2:
-                                    st.metric(
-                                        "SHARPE RATIO",
-                                        f"{full_metrics['sharpe_ratio']:.3f}"
-                                    )
-                                
-                                with col3:
-                                    st.metric(
-                                        "MAX DRAWDOWN",
-                                        f"{full_metrics['max_drawdown']:.2f}%"
-                                    )
-                                
-                                with col4:
-                                    st.metric(
-                                        "PROFIT FACTOR",
-                                        f"{full_metrics['profit_factor']:.2f}"
-                                    )
-                            else:
-                                st.warning("No se pudieron comparar reglas IS/OOS")
-                        else:
-                            st.warning("No se pudieron evaluar reglas OOS")
+                        
+                        # BACKTEST
+                        st.markdown("#### 5️⃣ Strategy Backtest")
+                        
+                        # Run backtests
+                        col1, col2, col3 = st.columns(3)
+                        
+                        # Full period backtest
+                        full_portfolio, full_metrics = engine.backtest_simple(
+                            best_rules[:5],  # Use top 5 rules
+                            indicators,
+                            data,
+                            10000
+                        )
+                        
+                        # IS backtest
+                        is_portfolio, is_metrics = engine.backtest_simple(
+                            best_rules[:5],
+                            in_sample_indicators,
+                            in_sample_data,
+                            10000
+                        )
+                        
+                        # OOS backtest
+                        oos_portfolio, oos_metrics = engine.backtest_simple(
+                            best_rules[:5],
+                            out_sample_indicators,
+                            out_sample_data,
+                            10000
+                        )
+                        
+                        # Display metrics table
+                        st.markdown("##### Performance Metrics")
+                        
+                        metrics_table = pd.DataFrame({
+                            'Metric': ['Cumulative Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Profit Factor'],
+                            'In-Sample': [
+                                is_metrics['cum_return'],
+                                is_metrics['sharpe'],
+                                is_metrics['max_dd'],
+                                is_metrics['profit_factor']
+                            ],
+                            'Out-of-Sample': [
+                                oos_metrics['cum_return'],
+                                oos_metrics['sharpe'],
+                                oos_metrics['max_dd'],
+                                oos_metrics['profit_factor']
+                            ],
+                            'Full Period': [
+                                full_metrics['cum_return'],
+                                full_metrics['sharpe'],
+                                full_metrics['max_dd'],
+                                full_metrics['profit_factor']
+                            ]
+                        })
+                        
+                        st.dataframe(
+                            metrics_table.style.format({
+                                'In-Sample': '{:.2f}',
+                                'Out-of-Sample': '{:.2f}',
+                                'Full Period': '{:.2f}'
+                            }).background_gradient(axis=1, cmap='RdYlGn'),
+                            use_container_width=True
+                        )
+                        
+                        # Plot equity curve
+                        fig = go.Figure()
+                        
+                        # Strategy equity
+                        fig.add_trace(
+                            go.Scatter(
+                                x=full_portfolio.index,
+                                y=full_portfolio['equity'],
+                                mode='lines',
+                                name='Strategy',
+                                line=dict(color='#51CF66', width=2.5)
+                            )
+                        )
+                        
+                        # Buy & Hold
+                        fig.add_trace(
+                            go.Scatter(
+                                x=full_portfolio.index,
+                                y=10000 * full_portfolio['cum_market'],
+                                mode='lines',
+                                name='Buy & Hold',
+                                line=dict(color='#808080', width=1.5, dash='dash')
+                            )
+                        )
+                        
+                        # Mark IS/OOS split
+                        fig.add_vline(
+                            x=data.index[split_index],
+                            line=dict(color='#FF6B6B', width=2, dash='dash'),
+                            annotation_text="IS | OOS",
+                            annotation_position="top"
+                        )
+                        
+                        # Add drawdown
+                        fig.add_trace(
+                            go.Scatter(
+                                x=full_portfolio.index,
+                                y=full_portfolio['drawdown'],
+                                mode='lines',
+                                name='Drawdown (%)',
+                                line=dict(color='#FF6B6B', width=1),
+                                fill='tozeroy',
+                                fillcolor='rgba(255, 107, 107, 0.2)',
+                                yaxis='y2'
+                            )
+                        )
+                        
+                        fig.update_layout(
+                            height=600,
+                            template="plotly_dark",
+                            title="Equity Curve & Drawdown",
+                            xaxis_title="Date",
+                            yaxis_title="Equity ($)",
+                            yaxis2=dict(
+                                title="Drawdown (%)",
+                                overlaying='y',
+                                side='right',
+                                range=[-50, 5]
+                            ),
+                            showlegend=True,
+                            legend=dict(x=0.01, y=0.99),
+                            paper_bgcolor='#0D1117',
+                            plot_bgcolor='#161B22'
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Key metrics display
+                        col1, col2, col3, col4 = st.columns(4)
+                        
+                        with col1:
+                            st.metric(
+                                "TOTAL RETURN",
+                                f"{full_metrics['cum_return']:.1f}%"
+                            )
+                        
+                        with col2:
+                            st.metric(
+                                "SHARPE RATIO",
+                                f"{full_metrics['sharpe']:.2f}"
+                            )
+                        
+                        with col3:
+                            st.metric(
+                                "MAX DRAWDOWN",
+                                f"{full_metrics['max_dd']:.1f}%"
+                            )
+                        
+                        with col4:
+                            st.metric(
+                                "PROFIT FACTOR",
+                                f"{full_metrics['profit_factor']:.2f}"
+                            )
+                        
+                        # Export options
+                        st.markdown("#### 💾 Export Results")
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            # Export rules
+                            rules_df = pd.DataFrame(best_rules)
+                            csv = rules_df.to_csv(index=False)
+                            st.download_button(
+                                "📥 Download Rules",
+                                data=csv,
+                                file_name=f"{ticker}_rules_{datetime.now().strftime('%Y%m%d')}.csv",
+                                mime="text/csv"
+                            )
+                        
+                        with col2:
+                            # Export metrics
+                            csv = metrics_table.to_csv(index=False)
+                            st.download_button(
+                                "📥 Download Metrics",
+                                data=csv,
+                                file_name=f"{ticker}_metrics_{datetime.now().strftime('%Y%m%d')}.csv",
+                                mime="text/csv"
+                            )
+                    
                     else:
-                        st.warning("No se encontraron reglas válidas")
+                        st.warning("⚠️ No valid rules found. Try adjusting parameters (lower min_signals or use more percentiles).")
         
         with tab4:
             st.markdown("### 💾 Opciones de Exportación")
