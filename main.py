@@ -1619,11 +1619,23 @@ def main():
                                 )
                             )
                             
-                            fig.add_vline(
+                            # Add vertical line for IS/OOS split
+                            fig.add_shape(
+                                type="line",
+                                x0=data.index[split_index],
+                                x1=data.index[split_index],
+                                y0=0,
+                                y1=1,
+                                yref="paper",
+                                line=dict(color='#FF6B6B', width=2, dash='dash')
+                            )
+                            fig.add_annotation(
                                 x=data.index[split_index],
-                                line=dict(color='#FF6B6B', width=2, dash='dash'),
-                                annotation_text="IS | OOS",
-                                annotation_position="top"
+                                y=1,
+                                yref="paper",
+                                text="IS | OOS",
+                                showarrow=False,
+                                yshift=10
                             )
                             
                             fig.update_layout(
