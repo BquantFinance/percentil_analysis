@@ -10,7 +10,7 @@ import warnings
 from typing import Dict, List, Tuple, Optional
 from scipy import stats
 from scipy.stats import gaussian_kde, pointbiserialr
-from itertools import combinations
+from itertools import combinations, product
 import re
 
 warnings.filterwarnings('ignore')
@@ -435,41 +435,42 @@ class TechnicalIndicators:
     def get_total_count(cls):
         return len(cls.ALL_INDICATORS) + len(cls.CANDLE_PATTERNS)
 
-# ===================== OPTIMIZED COMPOUND RULES ENGINE =====================
-class OptimizedCompoundRulesEngine:
-    """Optimized trading engine with smart rule generation and evaluation"""
+# ===================== FLEXIBLE COMPOUND RULES ENGINE =====================
+class FlexibleCompoundRulesEngine:
+    """Flexible trading engine with adjustable rule generation"""
     
     @staticmethod
-    def parse_simple_condition(condition: str, data_df: pd.DataFrame) -> np.ndarray:
-        """Parse and evaluate a simple condition"""
-        parts = condition.strip().split()
-        if len(parts) != 3:
-            return None
-            
-        column, operator, value_or_column = parts
-        
-        if column not in data_df.columns:
-            return None
-            
+    def parse_simple_condition_safe(condition: str, data_df: pd.DataFrame) -> np.ndarray:
+        """Parse with better error handling and NaN management"""
         try:
-            threshold = float(value_or_column)
-        except ValueError:
-            return None
-        
-        col_values = data_df[column].values
-        
-        if operator == '>':
-            result = col_values > threshold
-        elif operator == '>=':
-            result = col_values >= threshold
-        elif operator == '<':
-            result = col_values < threshold
-        elif operator == '<=':
-            result = col_values <= threshold
-        else:
-            return None
+            parts = condition.strip().split()
+            if len(parts) != 3:
+                return np.zeros(len(data_df), dtype=bool)
+                
+            column, operator, value_str = parts
             
-        return result
+            if column not in data_df.columns:
+                return np.zeros(len(data_df), dtype=bool)
+                
+            threshold = float(value_str)
+            col_values = data_df[column].values
+            
+            # Ensure no NaN comparisons
+            valid_mask = ~np.isnan(col_values)
+            result = np.zeros(len(data_df), dtype=bool)
+            
+            if operator == '>':
+                result[valid_mask] = col_values[valid_mask] > threshold
+            elif operator == '>=':
+                result[valid_mask] = col_values[valid_mask] >= threshold
+            elif operator == '<':
+                result[valid_mask] = col_values[valid_mask] < threshold
+            elif operator == '<=':
+                result[valid_mask] = col_values[valid_mask] <= threshold
+                
+            return result
+        except Exception:
+            return np.zeros(len(data_df), dtype=bool)
     
     @staticmethod
     def parse_compound_condition(condition: str, data_df: pd.DataFrame) -> np.ndarray:
@@ -477,14 +478,14 @@ class OptimizedCompoundRulesEngine:
         condition = condition.strip()
         
         if ' AND ' not in condition and ' OR ' not in condition:
-            return OptimizedCompoundRulesEngine.parse_simple_condition(condition, data_df)
+            return FlexibleCompoundRulesEngine.parse_simple_condition_safe(condition, data_df)
         
         # Handle AND logic
         if ' AND ' in condition:
             and_parts = condition.split(' AND ')
             and_results = []
             for part in and_parts:
-                part_result = OptimizedCompoundRulesEngine.parse_simple_condition(part.strip('()'), data_df)
+                part_result = FlexibleCompoundRulesEngine.parse_simple_condition_safe(part.strip('()'), data_df)
                 if part_result is not None:
                     and_results.append(part_result)
             
@@ -499,7 +500,7 @@ class OptimizedCompoundRulesEngine:
             or_parts = condition.split(' OR ')
             or_results = []
             for part in or_parts:
-                part_result = OptimizedCompoundRulesEngine.parse_simple_condition(part.strip('()'), data_df)
+                part_result = FlexibleCompoundRulesEngine.parse_simple_condition_safe(part.strip('()'), data_df)
                 if part_result is not None:
                     or_results.append(part_result)
             
@@ -512,160 +513,107 @@ class OptimizedCompoundRulesEngine:
         return None
     
     @staticmethod
-    def pre_evaluate_simple_rules(indicators_df: pd.DataFrame,
-                                 data_df: pd.DataFrame,
-                                 indicators_to_use: List[str],
-                                 percentiles: List[int],
-                                 holding_period: int = 5,
-                                 min_sharpe: float = 0.0) -> Dict:
-        """Pre-evaluate simple rules to filter before combinations"""
+    def generate_all_simple_rules(indicators_df: pd.DataFrame,
+                                percentiles: List[int],
+                                operators: List[str] = ['>', '<'],
+                                max_indicators: int = None) -> List[Dict]:
+        """Generate all simple rules without pre-filtering"""
+        rules = []
         
-        # Calculate returns once
-        if f'retornos_{holding_period}_dias' not in data_df.columns:
-            data_df[f'retornos_{holding_period}_dias'] = data_df['Close'].pct_change(holding_period).shift(-holding_period) * 100
+        columns_to_use = indicators_df.columns[:max_indicators] if max_indicators else indicators_df.columns
         
-        returns = data_df[f'retornos_{holding_period}_dias'].values
-        
-        good_simple_rules = []
-        rule_performance = {}
-        
-        for indicator in indicators_to_use[:15]:  # Limit indicators
-            if indicator not in indicators_df.columns:
-                continue
-                
-            data = indicators_df[indicator].dropna()
+        for col in columns_to_use:
+            data = indicators_df[col].dropna()
             if len(data) < 100:
                 continue
             
-            indicator_values = indicators_df[indicator].values
-            
-            for percentile in percentiles[:5]:  # Limit percentiles for initial evaluation
+            for percentile in percentiles:
                 threshold = data.quantile(percentile / 100)
                 
-                # Test < operator for low percentiles
-                if percentile <= 50:
-                    signals = indicator_values < threshold
-                    if signals.sum() >= 20:
-                        signal_returns = returns[signals]
-                        signal_returns = signal_returns[~np.isnan(signal_returns)]
-                        
-                        if len(signal_returns) > 10:
-                            mean_ret = np.mean(signal_returns)
-                            std_ret = np.std(signal_returns)
-                            sharpe = (mean_ret / (std_ret + 1e-8)) * np.sqrt(252 / holding_period)
-                            
-                            if sharpe >= min_sharpe:
-                                rule = {
-                                    'condition': f"{indicator} < {threshold:.6f}",
-                                    'indicator': indicator,
-                                    'operator': '<',
-                                    'threshold': threshold,
-                                    'sharpe': sharpe,
-                                    'signals': int(signals.sum()),
-                                    'type': 'BUY'
-                                }
-                                good_simple_rules.append(rule)
-                                rule_performance[rule['condition']] = sharpe
-                
-                # Test > operator for high percentiles
-                if percentile >= 50:
-                    signals = indicator_values > threshold
-                    if signals.sum() >= 20:
-                        signal_returns = -returns[signals]  # Negative for sell signals
-                        signal_returns = signal_returns[~np.isnan(signal_returns)]
-                        
-                        if len(signal_returns) > 10:
-                            mean_ret = np.mean(signal_returns)
-                            std_ret = np.std(signal_returns)
-                            sharpe = (mean_ret / (std_ret + 1e-8)) * np.sqrt(252 / holding_period)
-                            
-                            if sharpe >= min_sharpe:
-                                rule = {
-                                    'condition': f"{indicator} > {threshold:.6f}",
-                                    'indicator': indicator,
-                                    'operator': '>',
-                                    'threshold': threshold,
-                                    'sharpe': sharpe,
-                                    'signals': int(signals.sum()),
-                                    'type': 'SELL'
-                                }
-                                good_simple_rules.append(rule)
-                                rule_performance[rule['condition']] = sharpe
+                for operator in operators:
+                    # Determine trade type based on operator and percentile
+                    if operator == '<':
+                        trade_type = 'BUY' if percentile <= 50 else 'SELL'
+                    else:  # '>'
+                        trade_type = 'SELL' if percentile >= 50 else 'BUY'
+                    
+                    rules.append({
+                        'condition': f"{col} {operator} {threshold:.6f}",
+                        'indicator': col,
+                        'operator': operator,
+                        'threshold': threshold,
+                        'percentile': percentile,
+                        'type': 'simple',
+                        'trade_type': trade_type
+                    })
         
-        # Sort by Sharpe and take top performers
-        good_simple_rules = sorted(good_simple_rules, key=lambda x: x['sharpe'], reverse=True)
-        
-        return {
-            'rules': good_simple_rules[:50],  # Top 50 simple rules
-            'performance': rule_performance
-        }
+        return rules
     
     @staticmethod
-    def generate_smart_compound_rules(pre_evaluated_rules: List[Dict],
-                                     max_combinations: int = 500) -> List[Dict]:
-        """Generate only promising compound rules based on pre-evaluation"""
-        
+    def generate_compound_rules_from_simple(simple_rules: List[Dict],
+                                          max_combinations: int = 1000,
+                                          only_same_type: bool = True) -> List[Dict]:
+        """Generate compound rules from simple rules"""
         compound_rules = []
         
-        # Separate by type
-        buy_rules = [r for r in pre_evaluated_rules if r['type'] == 'BUY']
-        sell_rules = [r for r in pre_evaluated_rules if r['type'] == 'SELL']
-        
-        # Generate BUY combinations
-        for i, r1 in enumerate(buy_rules[:15]):
-            for r2 in buy_rules[i+1:20]:
-                if r1['indicator'] != r2['indicator']:
-                    estimated_sharpe = (r1['sharpe'] + r2['sharpe']) / 2.2
-                    
-                    compound_rules.append({
-                        'condition': f"({r1['condition']}) AND ({r2['condition']})",
-                        'type': 'compound',
-                        'logic': 'AND',
-                        'trade_type': 'BUY',
-                        'estimated_sharpe': estimated_sharpe * 1.1,
-                        'components': [r1['indicator'], r2['indicator']]
-                    })
-                    
-                    if len(compound_rules) >= max_combinations // 2:
-                        break
+        if only_same_type:
+            # Separate by trade type
+            buy_rules = [r for r in simple_rules if r['trade_type'] == 'BUY']
+            sell_rules = [r for r in simple_rules if r['trade_type'] == 'SELL']
             
-            if len(compound_rules) >= max_combinations // 2:
-                break
-        
-        # Generate SELL combinations
-        for i, r1 in enumerate(sell_rules[:15]):
-            for r2 in sell_rules[i+1:20]:
-                if r1['indicator'] != r2['indicator']:
-                    estimated_sharpe = (r1['sharpe'] + r2['sharpe']) / 2.2
-                    
-                    compound_rules.append({
-                        'condition': f"({r1['condition']}) AND ({r2['condition']})",
-                        'type': 'compound',
-                        'logic': 'AND',
-                        'trade_type': 'SELL',
-                        'estimated_sharpe': estimated_sharpe * 1.1,
-                        'components': [r1['indicator'], r2['indicator']]
-                    })
-                    
-                    if len(compound_rules) >= max_combinations:
-                        break
+            # Generate BUY combinations
+            for i, r1 in enumerate(buy_rules[:min(30, len(buy_rules))]):
+                for r2 in buy_rules[i+1:min(50, len(buy_rules))]:
+                    if r1['indicator'] != r2['indicator']:
+                        compound_rules.append({
+                            'condition': f"({r1['condition']}) AND ({r2['condition']})",
+                            'type': 'compound',
+                            'logic': 'AND',
+                            'trade_type': 'BUY',
+                            'components': [r1['indicator'], r2['indicator']]
+                        })
+                        
+                        if len(compound_rules) >= max_combinations // 2:
+                            break
+                
+                if len(compound_rules) >= max_combinations // 2:
+                    break
             
-            if len(compound_rules) >= max_combinations:
-                break
+            # Generate SELL combinations
+            for i, r1 in enumerate(sell_rules[:min(30, len(sell_rules))]):
+                for r2 in sell_rules[i+1:min(50, len(sell_rules))]:
+                    if r1['indicator'] != r2['indicator']:
+                        compound_rules.append({
+                            'condition': f"({r1['condition']}) AND ({r2['condition']})",
+                            'type': 'compound',
+                            'logic': 'AND',
+                            'trade_type': 'SELL',
+                            'components': [r1['indicator'], r2['indicator']]
+                        })
+                        
+                        if len(compound_rules) >= max_combinations:
+                            break
+                
+                if len(compound_rules) >= max_combinations:
+                    break
         
-        # Sort by estimated Sharpe
-        compound_rules = sorted(compound_rules, key=lambda x: x['estimated_sharpe'], reverse=True)
-        
-        return compound_rules[:max_combinations // 2]
+        return compound_rules
     
     @staticmethod
-    def evaluate_rules_batch_vectorized(rules: List[Dict],
-                                       data_df: pd.DataFrame,
-                                       indicators_df: pd.DataFrame,
-                                       holding_period: int = 5) -> pd.DataFrame:
-        """Vectorized batch evaluation of rules"""
+    def evaluate_rules_batch(rules: List[Dict],
+                           data_df: pd.DataFrame,
+                           indicators_df: pd.DataFrame,
+                           holding_period: int = 5,
+                           min_signals: int = 20,
+                           batch_size: int = 100) -> pd.DataFrame:
+        """Evaluate rules in batches with proper alignment"""
         
-        # Prepare data
+        # Ensure alignment
+        common_idx = indicators_df.index.intersection(data_df.index)
+        indicators_df = indicators_df.loc[common_idx]
+        data_df = data_df.loc[common_idx]
+        
+        # Prepare evaluation dataframe
         eval_df = pd.concat([indicators_df, data_df[['Close']]], axis=1)
         
         # Pre-calculate returns
@@ -673,7 +621,6 @@ class OptimizedCompoundRulesEngine:
         returns_array = returns.values
         
         results = []
-        batch_size = 50
         
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -689,18 +636,18 @@ class OptimizedCompoundRulesEngine:
             for rule in batch:
                 try:
                     # Parse condition
-                    signals = OptimizedCompoundRulesEngine.parse_compound_condition(
+                    signals = FlexibleCompoundRulesEngine.parse_compound_condition(
                         rule['condition'], eval_df
                     )
                     
-                    if signals is None or signals.sum() < 20:
+                    if signals is None or signals.sum() < min_signals:
                         continue
                     
-                    # Vectorized calculations
+                    # Get signal returns
                     signal_returns = returns_array[signals]
                     
                     # Adjust for trade type
-                    if rule.get('trade_type') == 'SELL' or rule.get('type') == 'SELL':
+                    if rule.get('trade_type') == 'SELL':
                         signal_returns = -signal_returns
                     
                     signal_returns = signal_returns[~np.isnan(signal_returns)]
@@ -747,87 +694,48 @@ class OptimizedCompoundRulesEngine:
         return pd.DataFrame()
     
     @staticmethod
-    def optimize_fast(data_df: pd.DataFrame,
-                     indicators_df: pd.DataFrame,
-                     indicators_to_use: List[str] = None,
-                     percentiles: List[int] = [10, 30, 50, 70, 90],
-                     max_compound_rules: int = 200,
-                     holding_period: int = 5) -> pd.DataFrame:
-        """Fast optimization with smart rule generation"""
-        
-        if indicators_to_use is None:
-            indicators_to_use = indicators_df.columns[:10]
-        
-        st.info(f"📊 Pre-evaluating simple rules from {len(indicators_to_use)} indicators...")
-        
-        # Step 1: Pre-evaluate simple rules
-        pre_eval = OptimizedCompoundRulesEngine.pre_evaluate_simple_rules(
-            indicators_df, data_df, indicators_to_use, percentiles, holding_period
-        )
-        
-        good_simple_rules = pre_eval['rules']
-        
-        if not good_simple_rules:
-            st.warning("No good simple rules found. Try adjusting parameters.")
-            return pd.DataFrame()
-        
-        st.success(f"✅ Found {len(good_simple_rules)} promising simple rules")
-        
-        # Step 2: Generate smart compound rules
-        st.info("🔄 Generating compound rules from best performers...")
-        compound_rules = OptimizedCompoundRulesEngine.generate_smart_compound_rules(
-            good_simple_rules, max_compound_rules
-        )
-        
-        st.success(f"✅ Generated {len(compound_rules)} compound rule candidates")
-        
-        # Step 3: Evaluate all rules
-        all_rules = good_simple_rules + compound_rules
-        st.info(f"📈 Evaluating {len(all_rules)} total rules...")
-        
-        results_df = OptimizedCompoundRulesEngine.evaluate_rules_batch_vectorized(
-            all_rules, data_df, indicators_df, holding_period
-        )
-        
-        return results_df
-    
-    @staticmethod
-    def select_best_rules(results_df: pd.DataFrame,
-                         indicators_df: pd.DataFrame,
-                         top_n: int = 10,
-                         max_correlation: float = 0.7) -> List[Dict]:
-        """Select best non-correlated rules"""
+    def select_diverse_rules(results_df: pd.DataFrame,
+                           n_rules: int = 10,
+                           min_signals: int = 20) -> List[Dict]:
+        """Select diverse rules based on multiple metrics"""
         if results_df.empty:
             return []
         
-        selected_rules = []
+        # Filter by minimum signals
+        valid_df = results_df[results_df['num_signals'] >= min_signals]
         
-        # Sort by Sharpe
-        sorted_results = results_df.sort_values('sharpe', ascending=False)
+        if valid_df.empty:
+            return []
         
-        for _, row in sorted_results.iterrows():
-            # Convert to rule dict
-            rule = {
+        selected = []
+        
+        # Get top rules by different metrics
+        n_per_metric = max(n_rules // 3, 1)
+        
+        top_sharpe = valid_df.nlargest(n_per_metric, 'sharpe')
+        top_pf = valid_df.nlargest(n_per_metric, 'profit_factor')
+        top_win = valid_df.nlargest(n_per_metric, 'win_rate')
+        
+        # Combine and deduplicate
+        combined = pd.concat([top_sharpe, top_pf, top_win]).drop_duplicates(subset=['condition'])
+        
+        # Convert to list of dicts
+        for _, row in combined.head(n_rules).iterrows():
+            selected.append({
                 'condition': row['condition'],
-                'type': row.get('type', 'simple'),
-                'trade_type': row.get('trade_type', 'UNKNOWN'),
+                'type': row['type'],
+                'trade_type': row['trade_type'],
                 'sharpe': row['sharpe'],
-                'profit_factor': row.get('profit_factor', 1),
-                'win_rate': row.get('win_rate', 50),
-                'num_signals': row.get('num_signals', 0)
-            }
-            
-            # Add to selected
-            selected_rules.append(rule)
-            
-            if len(selected_rules) >= top_n:
-                break
+                'profit_factor': row['profit_factor'],
+                'win_rate': row['win_rate'],
+                'num_signals': row['num_signals']
+            })
         
-        return selected_rules
+        return selected
 
-# ===================== SIMPLE BACKTEST ENGINE =====================
-class SimpleBacktest:
-    """Simple backtesting engine for strategy evaluation"""
+# ===================== IMPROVED BACKTEST ENGINE =====================
+class ImprovedBacktest:
+    """Improved backtesting engine with proper alignment"""
     
     @staticmethod
     def backtest_rules(selected_rules: List[Dict],
@@ -835,13 +743,23 @@ class SimpleBacktest:
                       data_df: pd.DataFrame,
                       initial_capital: float = 10000,
                       commission: float = 0.001) -> Tuple[pd.DataFrame, Dict]:
-        """Run backtest with selected rules"""
+        """Run backtest with selected rules and proper alignment"""
         
-        portfolio = pd.DataFrame(index=data_df.index)
+        # Ensure alignment
+        common_idx = indicators_df.index.intersection(data_df.index)
+        
+        if len(common_idx) == 0:
+            st.error("No common dates between indicators and price data")
+            return pd.DataFrame(), {}
+        
+        indicators_df = indicators_df.loc[common_idx]
+        data_df = data_df.loc[common_idx]
+        
+        portfolio = pd.DataFrame(index=common_idx)
         portfolio['price'] = data_df['Close']
         portfolio['returns'] = portfolio['price'].pct_change()
         
-        # Combine indicators and price data
+        # Combine for evaluation
         eval_df = pd.concat([indicators_df, data_df[['Close']]], axis=1)
         
         # Initialize signals
@@ -851,56 +769,81 @@ class SimpleBacktest:
         # Apply all rules
         for rule in selected_rules:
             try:
-                signals = OptimizedCompoundRulesEngine.parse_compound_condition(
+                signals = FlexibleCompoundRulesEngine.parse_compound_condition(
                     rule['condition'], eval_df
                 )
                 
-                if signals is not None:
+                if signals is not None and signals.sum() > 0:
                     if rule.get('trade_type') == 'BUY':
-                        buy_signals += signals.astype(int)
+                        buy_signals += signals.astype(float)
                     elif rule.get('trade_type') == 'SELL':
-                        sell_signals += signals.astype(int)
-            except:
+                        sell_signals += signals.astype(float)
+            except Exception:
                 continue
         
-        # Generate position signal
-        portfolio['signal'] = np.sign(buy_signals - sell_signals)
-        portfolio['position'] = portfolio['signal'].replace(0, np.nan).fillna(method='ffill').fillna(0)
+        # Generate position signal (-1, 0, 1)
+        portfolio['buy_signals'] = buy_signals
+        portfolio['sell_signals'] = sell_signals
+        portfolio['signal'] = np.where(buy_signals > sell_signals, 1, 
+                                      np.where(sell_signals > buy_signals, -1, 0))
+        
+        # Forward fill positions
+        portfolio['position'] = portfolio['signal'].replace(0, np.nan)
+        portfolio['position'] = portfolio['position'].fillna(method='ffill').fillna(0)
+        
+        # Calculate trades
         portfolio['trades'] = portfolio['position'].diff().fillna(0)
+        
+        # Calculate costs and returns
         portfolio['commission'] = np.abs(portfolio['trades']) * commission
         portfolio['strategy_returns'] = (
             portfolio['position'].shift(1) * portfolio['returns'] - portfolio['commission']
         )
+        
+        # Cumulative returns (properly compounded)
         portfolio['cum_returns'] = (1 + portfolio['strategy_returns'].fillna(0)).cumprod()
         portfolio['cum_market'] = (1 + portfolio['returns'].fillna(0)).cumprod()
+        
+        # Equity and drawdown
         portfolio['equity'] = initial_capital * portfolio['cum_returns']
         portfolio['peak'] = portfolio['equity'].cummax()
         portfolio['drawdown'] = (portfolio['equity'] / portfolio['peak'] - 1) * 100
         
         # Calculate metrics
         total_return = (portfolio['equity'].iloc[-1] / initial_capital - 1) * 100
+        market_return = (portfolio['cum_market'].iloc[-1] - 1) * 100
+        
         daily_returns = portfolio['strategy_returns'].dropna()
-        sharpe = daily_returns.mean() / (daily_returns.std() + 1e-8) * np.sqrt(252)
-        max_dd = portfolio['drawdown'].min()
         
-        winning_days = (daily_returns > 0).sum()
-        total_days = len(daily_returns[daily_returns != 0])
-        win_rate = (winning_days / max(total_days, 1)) * 100
-        
-        positive_returns = daily_returns[daily_returns > 0].sum()
-        negative_returns = -daily_returns[daily_returns < 0].sum()
-        profit_factor = positive_returns / negative_returns if negative_returns > 0 else 999
-        
-        num_trades = (portfolio['trades'] != 0).sum()
+        if len(daily_returns) > 0:
+            sharpe = daily_returns.mean() / (daily_returns.std() + 1e-8) * np.sqrt(252)
+            max_dd = portfolio['drawdown'].min()
+            
+            winning_days = (daily_returns > 0).sum()
+            total_days = len(daily_returns[daily_returns != 0])
+            win_rate = (winning_days / max(total_days, 1)) * 100
+            
+            positive_returns = daily_returns[daily_returns > 0].sum()
+            negative_returns = -daily_returns[daily_returns < 0].sum()
+            profit_factor = positive_returns / negative_returns if negative_returns > 0 else 999
+            
+            num_trades = (portfolio['trades'] != 0).sum()
+        else:
+            sharpe = 0
+            max_dd = 0
+            win_rate = 0
+            profit_factor = 0
+            num_trades = 0
         
         metrics = {
             'cum_return': total_return,
+            'market_return': market_return,
             'sharpe': sharpe,
             'max_dd': max_dd,
             'win_rate': win_rate,
             'profit_factor': min(profit_factor, 999),
             'num_trades': num_trades,
-            'final_equity': portfolio['equity'].iloc[-1]
+            'final_equity': portfolio['equity'].iloc[-1] if len(portfolio) > 0 else initial_capital
         }
         
         return portfolio, metrics
@@ -1423,34 +1366,45 @@ def main():
                 )
             
             with col4:
-                max_correlation = st.slider(
-                    "MAX CORRELATION",
-                    min_value=0.2,
-                    max_value=0.8,
-                    value=0.5,
-                    step=0.1,
-                    help="Between selected rules"
+                top_rules = st.number_input(
+                    "TOP RULES TO SELECT",
+                    min_value=3,
+                    max_value=20,
+                    value=10
                 )
             
             with st.expander("⚙️ Advanced Settings"):
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
-                    percentiles = st.multiselect(
-                        "PERCENTILES FOR THRESHOLDS",
-                        [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95],
-                        default=[10, 30, 50, 70, 90]
+                    rule_generation_mode = st.selectbox(
+                        "Rule Generation Mode",
+                        ["Fast (200 rules)", "Normal (1000 rules)", 
+                         "Thorough (5000 rules)", "Complete (All)"]
                     )
+                    
+                    if rule_generation_mode == "Fast (200 rules)":
+                        max_rules_to_test = 200
+                        percentiles_to_use = [20, 50, 80]
+                    elif rule_generation_mode == "Normal (1000 rules)":
+                        max_rules_to_test = 1000
+                        percentiles_to_use = [10, 25, 50, 75, 90]
+                    elif rule_generation_mode == "Thorough (5000 rules)":
+                        max_rules_to_test = 5000
+                        percentiles_to_use = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95]
+                    else:  # Complete
+                        max_rules_to_test = 50000
+                        percentiles_to_use = list(range(5, 100, 5))
                 
                 with col2:
                     use_compound_rules = st.checkbox("Use Compound Rules", value=True)
                     if use_compound_rules:
                         max_compound_rules = st.number_input(
                             "Max Compound Rules",
-                            min_value=50,
-                            max_value=500,
-                            value=200,
-                            step=50
+                            min_value=100,
+                            max_value=5000,
+                            value=min(500, max_rules_to_test // 2),
+                            step=100
                         )
                 
                 with col3:
@@ -1458,21 +1412,24 @@ def main():
                         "MAX INDICATORS",
                         min_value=5,
                         max_value=100,
-                        value=15,
+                        value=20,
                         help="Limit to speed up"
                     )
                 
                 with col4:
-                    top_rules = st.number_input(
-                        "TOP RULES TO SELECT",
-                        min_value=3,
-                        max_value=20,
-                        value=10
+                    min_sharpe = st.number_input(
+                        "MIN SHARPE RATIO",
+                        min_value=-2.0,
+                        max_value=2.0,
+                        value=0.0,
+                        step=0.1,
+                        help="Minimum Sharpe for rule selection"
                     )
             
             if st.button("🚀 RUN ANALYSIS", use_container_width=True, type="primary"):
                 with st.spinner("Generating and testing rules..."):
                     
+                    # Split data
                     split_index = int(len(data) * sample_split / 100)
                     
                     in_sample_data = data.iloc[:split_index].copy()
@@ -1493,34 +1450,60 @@ def main():
                         {out_sample_data.index[0].strftime('%Y-%m-%d')} to {out_sample_data.index[-1].strftime('%Y-%m-%d')}
                         """)
                     
+                    # Generate rules
+                    st.markdown("#### 📊 Generating Trading Rules")
+                    engine = FlexibleCompoundRulesEngine()
+                    
+                    # Generate simple rules
+                    simple_rules = engine.generate_all_simple_rules(
+                        in_sample_indicators,
+                        percentiles_to_use,
+                        ['>', '<'],
+                        max_indicators_to_analyze
+                    )
+                    
+                    st.success(f"✅ Generated {len(simple_rules)} simple rules")
+                    
+                    # Generate compound rules if enabled
                     if use_compound_rules:
-                        st.markdown("#### 📊 Generating Optimized Rules")
-                        engine = OptimizedCompoundRulesEngine()
-                        
-                        results_df = engine.optimize_fast(
-                            data_df=in_sample_data,
-                            indicators_df=in_sample_indicators,
-                            indicators_to_use=in_sample_indicators.columns[:max_indicators_to_analyze],
-                            percentiles=percentiles,
-                            max_compound_rules=max_compound_rules,
-                            holding_period=holding_period
+                        compound_rules = engine.generate_compound_rules_from_simple(
+                            simple_rules,
+                            max_compound_rules
                         )
+                        st.success(f"✅ Generated {len(compound_rules)} compound rules")
+                        all_rules = simple_rules + compound_rules
+                    else:
+                        all_rules = simple_rules
+                    
+                    # Evaluate rules on IS
+                    st.markdown("#### 📈 Evaluating Rules (In-Sample)")
+                    is_results = engine.evaluate_rules_batch(
+                        all_rules[:max_rules_to_test],
+                        in_sample_data,
+                        in_sample_indicators,
+                        holding_period,
+                        min_signals
+                    )
+                    
+                    if not is_results.empty:
+                        # Filter by minimum Sharpe
+                        is_results = is_results[is_results['sharpe'] >= min_sharpe]
                         
-                        if not results_df.empty:
-                            st.success(f"✅ Evaluated {len(results_df)} rules")
-                            
-                            # Select best rules
-                            best_rules = engine.select_best_rules(
-                                results_df,
-                                in_sample_indicators,
+                        if not is_results.empty:
+                            # Select diverse rules
+                            best_rules = engine.select_diverse_rules(
+                                is_results,
                                 top_rules,
-                                max_correlation
+                                min_signals
                             )
+                            
+                            st.success(f"✅ Selected {len(best_rules)} best rules")
                             
                             # Display top rules
                             st.markdown("##### Top Rules (In-Sample)")
-                            display_df = results_df[['condition', 'type', 'num_signals', 'sharpe', 'profit_factor', 'win_rate']].head(15).copy()
-                            display_df.columns = ['Rule', 'Type', 'Signals', 'Sharpe', 'PF', 'Win%']
+                            display_df = is_results[['condition', 'type', 'trade_type', 'num_signals', 
+                                                    'sharpe', 'profit_factor', 'win_rate']].head(15).copy()
+                            display_df.columns = ['Rule', 'Type', 'Trade', 'Signals', 'Sharpe', 'PF', 'Win%']
                             
                             st.dataframe(
                                 display_df.style.format({
@@ -1532,40 +1515,52 @@ def main():
                                 height=400
                             )
                             
+                            # Evaluate on OOS
+                            st.markdown("#### 📊 Evaluating Rules (Out-of-Sample)")
+                            oos_results = engine.evaluate_rules_batch(
+                                best_rules,
+                                out_sample_data,
+                                out_sample_indicators,
+                                holding_period,
+                                min_signals=5  # Less restrictive for OOS
+                            )
+                            
                             # Backtest
-                            st.markdown("#### 📈 Backtesting")
+                            st.markdown("#### 💼 Backtesting Strategy")
                             
                             # Full period backtest
-                            full_portfolio, full_metrics = SimpleBacktest.backtest_rules(
-                                best_rules[:5],
+                            full_portfolio, full_metrics = ImprovedBacktest.backtest_rules(
+                                best_rules[:min(5, len(best_rules))],
                                 indicators,
                                 data,
                                 10000
                             )
                             
                             # IS backtest
-                            is_portfolio, is_metrics = SimpleBacktest.backtest_rules(
-                                best_rules[:5],
+                            is_portfolio, is_metrics = ImprovedBacktest.backtest_rules(
+                                best_rules[:min(5, len(best_rules))],
                                 in_sample_indicators,
                                 in_sample_data,
                                 10000
                             )
                             
                             # OOS backtest
-                            oos_portfolio, oos_metrics = SimpleBacktest.backtest_rules(
-                                best_rules[:5],
+                            oos_portfolio, oos_metrics = ImprovedBacktest.backtest_rules(
+                                best_rules[:min(5, len(best_rules))],
                                 out_sample_indicators,
                                 out_sample_data,
                                 10000
                             )
                             
-                            # Metrics table
+                            # Performance table
                             st.markdown("##### Performance Metrics")
                             
                             metrics_table = pd.DataFrame({
-                                'Metric': ['Cumulative Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Profit Factor', 'Win Rate (%)'],
+                                'Metric': ['Cumulative Return (%)', 'Market Return (%)', 'Sharpe Ratio', 
+                                          'Max Drawdown (%)', 'Profit Factor', 'Win Rate (%)'],
                                 'In-Sample': [
                                     is_metrics['cum_return'],
+                                    is_metrics.get('market_return', 0),
                                     is_metrics['sharpe'],
                                     is_metrics['max_dd'],
                                     is_metrics['profit_factor'],
@@ -1573,6 +1568,7 @@ def main():
                                 ],
                                 'Out-of-Sample': [
                                     oos_metrics['cum_return'],
+                                    oos_metrics.get('market_return', 0),
                                     oos_metrics['sharpe'],
                                     oos_metrics['max_dd'],
                                     oos_metrics['profit_factor'],
@@ -1580,6 +1576,7 @@ def main():
                                 ],
                                 'Full Period': [
                                     full_metrics['cum_return'],
+                                    full_metrics.get('market_return', 0),
                                     full_metrics['sharpe'],
                                     full_metrics['max_dd'],
                                     full_metrics['profit_factor'],
@@ -1597,60 +1594,61 @@ def main():
                             )
                             
                             # Equity curve
-                            fig = go.Figure()
-                            
-                            fig.add_trace(
-                                go.Scatter(
-                                    x=full_portfolio.index,
-                                    y=full_portfolio['equity'],
-                                    mode='lines',
-                                    name='Strategy',
-                                    line=dict(color='#51CF66', width=2.5)
+                            if len(full_portfolio) > 0:
+                                fig = go.Figure()
+                                
+                                fig.add_trace(
+                                    go.Scatter(
+                                        x=full_portfolio.index,
+                                        y=full_portfolio['equity'],
+                                        mode='lines',
+                                        name='Strategy',
+                                        line=dict(color='#51CF66', width=2.5)
+                                    )
                                 )
-                            )
-                            
-                            fig.add_trace(
-                                go.Scatter(
-                                    x=full_portfolio.index,
-                                    y=10000 * full_portfolio['cum_market'],
-                                    mode='lines',
-                                    name='Buy & Hold',
-                                    line=dict(color='#808080', width=1.5, dash='dash')
+                                
+                                fig.add_trace(
+                                    go.Scatter(
+                                        x=full_portfolio.index,
+                                        y=10000 * full_portfolio['cum_market'],
+                                        mode='lines',
+                                        name='Buy & Hold',
+                                        line=dict(color='#808080', width=1.5, dash='dash')
+                                    )
                                 )
-                            )
-                            
-                            # Add vertical line for IS/OOS split
-                            fig.add_shape(
-                                type="line",
-                                x0=data.index[split_index],
-                                x1=data.index[split_index],
-                                y0=0,
-                                y1=1,
-                                yref="paper",
-                                line=dict(color='#FF6B6B', width=2, dash='dash')
-                            )
-                            fig.add_annotation(
-                                x=data.index[split_index],
-                                y=1,
-                                yref="paper",
-                                text="IS | OOS",
-                                showarrow=False,
-                                yshift=10
-                            )
-                            
-                            fig.update_layout(
-                                height=600,
-                                template="plotly_dark",
-                                title="Equity Curve",
-                                xaxis_title="Date",
-                                yaxis_title="Equity ($)",
-                                showlegend=True,
-                                legend=dict(x=0.01, y=0.99),
-                                paper_bgcolor='#0D1117',
-                                plot_bgcolor='#161B22'
-                            )
-                            
-                            st.plotly_chart(fig, use_container_width=True)
+                                
+                                # Add vertical line for IS/OOS split (fixed for timestamp issue)
+                                fig.add_shape(
+                                    type="line",
+                                    x0=data.index[split_index],
+                                    x1=data.index[split_index],
+                                    y0=0,
+                                    y1=1,
+                                    yref="paper",
+                                    line=dict(color='#FF6B6B', width=2, dash='dash')
+                                )
+                                fig.add_annotation(
+                                    x=data.index[split_index],
+                                    y=1,
+                                    yref="paper",
+                                    text="IS | OOS",
+                                    showarrow=False,
+                                    yshift=10
+                                )
+                                
+                                fig.update_layout(
+                                    height=600,
+                                    template="plotly_dark",
+                                    title="Equity Curve",
+                                    xaxis_title="Date",
+                                    yaxis_title="Equity ($)",
+                                    showlegend=True,
+                                    legend=dict(x=0.01, y=0.99),
+                                    paper_bgcolor='#0D1117',
+                                    plot_bgcolor='#161B22'
+                                )
+                                
+                                st.plotly_chart(fig, use_container_width=True)
                             
                             # Key metrics
                             col1, col2, col3, col4 = st.columns(4)
@@ -1679,7 +1677,9 @@ def main():
                                     f"{full_metrics['profit_factor']:.2f}"
                                 )
                         else:
-                            st.warning("No valid rules found. Try adjusting parameters.")
+                            st.warning("No rules met the minimum Sharpe ratio requirement")
+                    else:
+                        st.warning("No valid rules found. Try adjusting parameters.")
         
         with tab3:
             st.markdown("### 💾 Opciones de Exportación")
