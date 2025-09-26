@@ -10,7 +10,7 @@ import warnings
 from typing import Dict, List, Tuple, Optional
 from scipy import stats
 from scipy.stats import gaussian_kde, pointbiserialr
-from itertools import combinations  
+from itertools import combinations
 import re
 
 warnings.filterwarnings('ignore')
@@ -435,266 +435,435 @@ class TechnicalIndicators:
     def get_total_count(cls):
         return len(cls.ALL_INDICATORS) + len(cls.CANDLE_PATTERNS)
 
-# ===================== UNIVERSAL TRADING ENGINE =====================
-class UniversalTradingEngine:
-    """Universal Trading Rules Engine with IS/OOS Validation"""
+# ===================== OPTIMIZED COMPOUND RULES ENGINE =====================
+class OptimizedCompoundRulesEngine:
+    """Optimized trading engine with smart rule generation and evaluation"""
     
     @staticmethod
-    def generate_all_rules(indicators_df: pd.DataFrame, 
-                          percentiles: List[int] = [10, 25, 50, 75, 90],
-                          operators: List[str] = ['>', '<', '>=', '<='],
-                          max_indicators: int = None) -> List[Dict]:
-        """Generate all possible trading rules based on percentiles and operators"""
-        rules = []
+    def parse_simple_condition(condition: str, data_df: pd.DataFrame) -> np.ndarray:
+        """Parse and evaluate a simple condition"""
+        parts = condition.strip().split()
+        if len(parts) != 3:
+            return None
+            
+        column, operator, value_or_column = parts
         
-        columns_to_use = indicators_df.columns[:max_indicators] if max_indicators else indicators_df.columns
+        if column not in data_df.columns:
+            return None
+            
+        try:
+            threshold = float(value_or_column)
+        except ValueError:
+            return None
         
-        for col in columns_to_use:
-            data = indicators_df[col].dropna()
-            if len(data) < 100:
+        col_values = data_df[column].values
+        
+        if operator == '>':
+            result = col_values > threshold
+        elif operator == '>=':
+            result = col_values >= threshold
+        elif operator == '<':
+            result = col_values < threshold
+        elif operator == '<=':
+            result = col_values <= threshold
+        else:
+            return None
+            
+        return result
+    
+    @staticmethod
+    def parse_compound_condition(condition: str, data_df: pd.DataFrame) -> np.ndarray:
+        """Parse compound conditions with AND/OR logic"""
+        condition = condition.strip()
+        
+        if ' AND ' not in condition and ' OR ' not in condition:
+            return OptimizedCompoundRulesEngine.parse_simple_condition(condition, data_df)
+        
+        # Handle AND logic
+        if ' AND ' in condition:
+            and_parts = condition.split(' AND ')
+            and_results = []
+            for part in and_parts:
+                part_result = OptimizedCompoundRulesEngine.parse_simple_condition(part.strip('()'), data_df)
+                if part_result is not None:
+                    and_results.append(part_result)
+            
+            if and_results:
+                result = and_results[0]
+                for r in and_results[1:]:
+                    result = result & r
+                return result
+        
+        # Handle OR logic  
+        if ' OR ' in condition:
+            or_parts = condition.split(' OR ')
+            or_results = []
+            for part in or_parts:
+                part_result = OptimizedCompoundRulesEngine.parse_simple_condition(part.strip('()'), data_df)
+                if part_result is not None:
+                    or_results.append(part_result)
+            
+            if or_results:
+                result = or_results[0]
+                for r in or_results[1:]:
+                    result = result | r
+                return result
+        
+        return None
+    
+    @staticmethod
+    def pre_evaluate_simple_rules(indicators_df: pd.DataFrame,
+                                 data_df: pd.DataFrame,
+                                 indicators_to_use: List[str],
+                                 percentiles: List[int],
+                                 holding_period: int = 5,
+                                 min_sharpe: float = 0.0) -> Dict:
+        """Pre-evaluate simple rules to filter before combinations"""
+        
+        # Calculate returns once
+        if f'retornos_{holding_period}_dias' not in data_df.columns:
+            data_df[f'retornos_{holding_period}_dias'] = data_df['Close'].pct_change(holding_period).shift(-holding_period) * 100
+        
+        returns = data_df[f'retornos_{holding_period}_dias'].values
+        
+        good_simple_rules = []
+        rule_performance = {}
+        
+        for indicator in indicators_to_use[:15]:  # Limit indicators
+            if indicator not in indicators_df.columns:
                 continue
                 
-            for percentile in percentiles:
+            data = indicators_df[indicator].dropna()
+            if len(data) < 100:
+                continue
+            
+            indicator_values = indicators_df[indicator].values
+            
+            for percentile in percentiles[:5]:  # Limit percentiles for initial evaluation
                 threshold = data.quantile(percentile / 100)
                 
-                for operator in operators:
-                    if operator in ['<', '<=']:
-                        if percentile <= 50:
-                            rule_type = 'BUY'
-                        else:
-                            rule_type = 'SELL'
-                    else:
-                        if percentile >= 50:
-                            rule_type = 'SELL'
-                        else:
-                            rule_type = 'BUY'
-                    
-                    rule_str = f"{col} {operator} {threshold:.6f}"
-                    
-                    rules.append({
-                        'condition': rule_str,
-                        'name': f"{col}_P{percentile}_{operator}_{rule_type}",
-                        'indicator': col,
-                        'operator': operator,
-                        'threshold': threshold,
-                        'percentile': percentile,
-                        'type': rule_type
-                    })
-        
-        return rules
-    
-    @staticmethod
-    def evaluate_single_rule(rule: Dict, 
-                           indicators_df: pd.DataFrame,
-                           data_df: pd.DataFrame,
-                           holding_period: int) -> Dict:
-        """Evaluate a single trading rule"""
-        try:
-            parts = rule['condition'].split()
-            if len(parts) != 3:
-                return None
+                # Test < operator for low percentiles
+                if percentile <= 50:
+                    signals = indicator_values < threshold
+                    if signals.sum() >= 20:
+                        signal_returns = returns[signals]
+                        signal_returns = signal_returns[~np.isnan(signal_returns)]
+                        
+                        if len(signal_returns) > 10:
+                            mean_ret = np.mean(signal_returns)
+                            std_ret = np.std(signal_returns)
+                            sharpe = (mean_ret / (std_ret + 1e-8)) * np.sqrt(252 / holding_period)
+                            
+                            if sharpe >= min_sharpe:
+                                rule = {
+                                    'condition': f"{indicator} < {threshold:.6f}",
+                                    'indicator': indicator,
+                                    'operator': '<',
+                                    'threshold': threshold,
+                                    'sharpe': sharpe,
+                                    'signals': int(signals.sum()),
+                                    'type': 'BUY'
+                                }
+                                good_simple_rules.append(rule)
+                                rule_performance[rule['condition']] = sharpe
                 
-            indicator_name, operator, threshold_str = parts
-            threshold = float(threshold_str)
-            
-            if indicator_name not in indicators_df.columns:
-                return None
-            
-            indicator_values = indicators_df[indicator_name].values
-            
-            if operator == '>':
-                signals = indicator_values > threshold
-            elif operator == '>=':
-                signals = indicator_values >= threshold
-            elif operator == '<':
-                signals = indicator_values < threshold
-            elif operator == '<=':
-                signals = indicator_values <= threshold
-            else:
-                return None
-            
-            return_col = f'retornos_{holding_period}_dias'
-            if return_col not in data_df.columns:
-                data_df[return_col] = data_df['Close'].pct_change(holding_period) * 100
-            
-            returns = data_df[return_col].values
-            signal_returns = returns[signals]
-            
-            if rule['type'] == 'SELL':
-                signal_returns = -signal_returns
-            
-            num_signals = np.sum(signals)
-            if num_signals < 10:
-                return None
-            
-            signal_returns = signal_returns[~np.isnan(signal_returns)]
-            if len(signal_returns) == 0:
-                return None
-            
-            mean_return = np.mean(signal_returns)
-            std_return = np.std(signal_returns)
-            win_rate = (signal_returns > 0).mean() * 100
-            
-            positive_returns = signal_returns[signal_returns > 0].sum()
-            negative_returns = -signal_returns[signal_returns < 0].sum()
-            profit_factor = positive_returns / negative_returns if negative_returns > 0 else np.inf
-            
-            sharpe = (mean_return / (std_return + 1e-8)) * np.sqrt(252 / holding_period)
-            
-            cumulative_returns = np.cumprod(1 + signal_returns / 100)
-            peak = np.maximum.accumulate(cumulative_returns)
-            drawdown = ((cumulative_returns - peak) / peak) * 100
-            max_drawdown = np.min(drawdown)
-            
-            return {
-                'name': rule['name'],
-                'condition': rule['condition'],
-                'type': rule['type'],
-                'indicator': rule['indicator'],
-                'percentile': rule['percentile'],
-                'operator': rule['operator'],
-                'threshold': rule['threshold'],
-                'signals': int(num_signals),
-                'signal_pct': (num_signals / len(signals)) * 100,
-                'mean_return': mean_return,
-                'std_return': std_return,
-                'sharpe': sharpe,
-                'win_rate': win_rate,
-                'profit_factor': profit_factor if profit_factor != np.inf else 999,
-                'max_dd': max_drawdown,
-                'cum_return': np.prod(1 + signal_returns / 100) * 100 - 100
-            }
-            
-        except Exception as e:
-            return None
+                # Test > operator for high percentiles
+                if percentile >= 50:
+                    signals = indicator_values > threshold
+                    if signals.sum() >= 20:
+                        signal_returns = -returns[signals]  # Negative for sell signals
+                        signal_returns = signal_returns[~np.isnan(signal_returns)]
+                        
+                        if len(signal_returns) > 10:
+                            mean_ret = np.mean(signal_returns)
+                            std_ret = np.std(signal_returns)
+                            sharpe = (mean_ret / (std_ret + 1e-8)) * np.sqrt(252 / holding_period)
+                            
+                            if sharpe >= min_sharpe:
+                                rule = {
+                                    'condition': f"{indicator} > {threshold:.6f}",
+                                    'indicator': indicator,
+                                    'operator': '>',
+                                    'threshold': threshold,
+                                    'sharpe': sharpe,
+                                    'signals': int(signals.sum()),
+                                    'type': 'SELL'
+                                }
+                                good_simple_rules.append(rule)
+                                rule_performance[rule['condition']] = sharpe
+        
+        # Sort by Sharpe and take top performers
+        good_simple_rules = sorted(good_simple_rules, key=lambda x: x['sharpe'], reverse=True)
+        
+        return {
+            'rules': good_simple_rules[:50],  # Top 50 simple rules
+            'performance': rule_performance
+        }
     
     @staticmethod
-    def evaluate_rules_batch(rules: List[Dict],
-                           indicators_df: pd.DataFrame,
-                           data_df: pd.DataFrame,
-                           holding_period: int,
-                           min_signals: int = 20,
-                           batch_size: int = 100) -> pd.DataFrame:
-        """Evaluate multiple rules in batches"""
+    def generate_smart_compound_rules(pre_evaluated_rules: List[Dict],
+                                     max_combinations: int = 500) -> List[Dict]:
+        """Generate only promising compound rules based on pre-evaluation"""
+        
+        compound_rules = []
+        
+        # Separate by type
+        buy_rules = [r for r in pre_evaluated_rules if r['type'] == 'BUY']
+        sell_rules = [r for r in pre_evaluated_rules if r['type'] == 'SELL']
+        
+        # Generate BUY combinations
+        for i, r1 in enumerate(buy_rules[:15]):
+            for r2 in buy_rules[i+1:20]:
+                if r1['indicator'] != r2['indicator']:
+                    estimated_sharpe = (r1['sharpe'] + r2['sharpe']) / 2.2
+                    
+                    compound_rules.append({
+                        'condition': f"({r1['condition']}) AND ({r2['condition']})",
+                        'type': 'compound',
+                        'logic': 'AND',
+                        'trade_type': 'BUY',
+                        'estimated_sharpe': estimated_sharpe * 1.1,
+                        'components': [r1['indicator'], r2['indicator']]
+                    })
+                    
+                    if len(compound_rules) >= max_combinations // 2:
+                        break
+            
+            if len(compound_rules) >= max_combinations // 2:
+                break
+        
+        # Generate SELL combinations
+        for i, r1 in enumerate(sell_rules[:15]):
+            for r2 in sell_rules[i+1:20]:
+                if r1['indicator'] != r2['indicator']:
+                    estimated_sharpe = (r1['sharpe'] + r2['sharpe']) / 2.2
+                    
+                    compound_rules.append({
+                        'condition': f"({r1['condition']}) AND ({r2['condition']})",
+                        'type': 'compound',
+                        'logic': 'AND',
+                        'trade_type': 'SELL',
+                        'estimated_sharpe': estimated_sharpe * 1.1,
+                        'components': [r1['indicator'], r2['indicator']]
+                    })
+                    
+                    if len(compound_rules) >= max_combinations:
+                        break
+            
+            if len(compound_rules) >= max_combinations:
+                break
+        
+        # Sort by estimated Sharpe
+        compound_rules = sorted(compound_rules, key=lambda x: x['estimated_sharpe'], reverse=True)
+        
+        return compound_rules[:max_combinations // 2]
+    
+    @staticmethod
+    def evaluate_rules_batch_vectorized(rules: List[Dict],
+                                       data_df: pd.DataFrame,
+                                       indicators_df: pd.DataFrame,
+                                       holding_period: int = 5) -> pd.DataFrame:
+        """Vectorized batch evaluation of rules"""
+        
+        # Prepare data
+        eval_df = pd.concat([indicators_df, data_df[['Close']]], axis=1)
+        
+        # Pre-calculate returns
+        returns = eval_df['Close'].pct_change(holding_period).shift(-holding_period) * 100
+        returns_array = returns.values
+        
         results = []
-        total_rules = len(rules)
+        batch_size = 50
         
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        for i, rule in enumerate(rules):
-            if i % batch_size == 0:
-                progress = i / total_rules
-                progress_bar.progress(min(progress, 1.0))
-                status_text.text(f"Evaluating rule {i+1} of {total_rules}")
+        for batch_idx in range(0, len(rules), batch_size):
+            batch = rules[batch_idx:batch_idx + batch_size]
             
-            result = UniversalTradingEngine.evaluate_single_rule(
-                rule, indicators_df, data_df, holding_period
-            )
+            # Update progress
+            progress = min((batch_idx + batch_size) / len(rules), 1.0)
+            progress_bar.progress(progress)
+            status_text.text(f"Evaluating rules {batch_idx+1} to {min(batch_idx+batch_size, len(rules))} of {len(rules)}")
             
-            if result and result['signals'] >= min_signals:
-                results.append(result)
+            for rule in batch:
+                try:
+                    # Parse condition
+                    signals = OptimizedCompoundRulesEngine.parse_compound_condition(
+                        rule['condition'], eval_df
+                    )
+                    
+                    if signals is None or signals.sum() < 20:
+                        continue
+                    
+                    # Vectorized calculations
+                    signal_returns = returns_array[signals]
+                    
+                    # Adjust for trade type
+                    if rule.get('trade_type') == 'SELL' or rule.get('type') == 'SELL':
+                        signal_returns = -signal_returns
+                    
+                    signal_returns = signal_returns[~np.isnan(signal_returns)]
+                    
+                    if len(signal_returns) < 10:
+                        continue
+                    
+                    # Calculate metrics
+                    mean_ret = np.mean(signal_returns)
+                    std_ret = np.std(signal_returns)
+                    sharpe = (mean_ret / (std_ret + 1e-8)) * np.sqrt(252 / holding_period)
+                    
+                    # Win rate
+                    win_rate = (signal_returns > 0).mean() * 100
+                    
+                    # Profit factor
+                    pos_returns = signal_returns[signal_returns > 0].sum()
+                    neg_returns = -signal_returns[signal_returns < 0].sum()
+                    profit_factor = pos_returns / neg_returns if neg_returns > 0 else 999
+                    
+                    # Store result
+                    results.append({
+                        'condition': rule['condition'],
+                        'type': rule.get('type', 'simple'),
+                        'trade_type': rule.get('trade_type', 'UNKNOWN'),
+                        'logic': rule.get('logic', 'simple'),
+                        'num_signals': int(signals.sum()),
+                        'mean_return': mean_ret,
+                        'std_return': std_ret,
+                        'sharpe': sharpe,
+                        'win_rate': win_rate,
+                        'profit_factor': min(profit_factor, 999),
+                        'signal_pct': (signals.sum() / len(signals)) * 100
+                    })
+                    
+                except Exception:
+                    continue
         
         progress_bar.empty()
         status_text.empty()
         
         if results:
-            results_df = pd.DataFrame(results)
-            results_df = results_df.sort_values('sharpe', ascending=False)
-            return results_df
-        
+            return pd.DataFrame(results).sort_values('sharpe', ascending=False)
         return pd.DataFrame()
+    
+    @staticmethod
+    def optimize_fast(data_df: pd.DataFrame,
+                     indicators_df: pd.DataFrame,
+                     indicators_to_use: List[str] = None,
+                     percentiles: List[int] = [10, 30, 50, 70, 90],
+                     max_compound_rules: int = 200,
+                     holding_period: int = 5) -> pd.DataFrame:
+        """Fast optimization with smart rule generation"""
+        
+        if indicators_to_use is None:
+            indicators_to_use = indicators_df.columns[:10]
+        
+        st.info(f"📊 Pre-evaluating simple rules from {len(indicators_to_use)} indicators...")
+        
+        # Step 1: Pre-evaluate simple rules
+        pre_eval = OptimizedCompoundRulesEngine.pre_evaluate_simple_rules(
+            indicators_df, data_df, indicators_to_use, percentiles, holding_period
+        )
+        
+        good_simple_rules = pre_eval['rules']
+        
+        if not good_simple_rules:
+            st.warning("No good simple rules found. Try adjusting parameters.")
+            return pd.DataFrame()
+        
+        st.success(f"✅ Found {len(good_simple_rules)} promising simple rules")
+        
+        # Step 2: Generate smart compound rules
+        st.info("🔄 Generating compound rules from best performers...")
+        compound_rules = OptimizedCompoundRulesEngine.generate_smart_compound_rules(
+            good_simple_rules, max_compound_rules
+        )
+        
+        st.success(f"✅ Generated {len(compound_rules)} compound rule candidates")
+        
+        # Step 3: Evaluate all rules
+        all_rules = good_simple_rules + compound_rules
+        st.info(f"📈 Evaluating {len(all_rules)} total rules...")
+        
+        results_df = OptimizedCompoundRulesEngine.evaluate_rules_batch_vectorized(
+            all_rules, data_df, indicators_df, holding_period
+        )
+        
+        return results_df
     
     @staticmethod
     def select_best_rules(results_df: pd.DataFrame,
                          indicators_df: pd.DataFrame,
                          top_n: int = 10,
-                         max_correlation: float = 0.5) -> List[Dict]:
+                         max_correlation: float = 0.7) -> List[Dict]:
         """Select best non-correlated rules"""
         if results_df.empty:
             return []
         
         selected_rules = []
-        selected_indicators = []
         
+        # Sort by Sharpe
         sorted_results = results_df.sort_values('sharpe', ascending=False)
         
         for _, row in sorted_results.iterrows():
-            indicator = row['indicator']
+            # Convert to rule dict
+            rule = {
+                'condition': row['condition'],
+                'type': row.get('type', 'simple'),
+                'trade_type': row.get('trade_type', 'UNKNOWN'),
+                'sharpe': row['sharpe'],
+                'profit_factor': row.get('profit_factor', 1),
+                'win_rate': row.get('win_rate', 50),
+                'num_signals': row.get('num_signals', 0)
+            }
             
-            is_correlated = False
-            for selected_ind in selected_indicators:
-                if indicator == selected_ind:
-                    is_correlated = True
-                    break
-                
-                if indicator in indicators_df.columns and selected_ind in indicators_df.columns:
-                    corr = indicators_df[indicator].corr(indicators_df[selected_ind])
-                    if abs(corr) > max_correlation:
-                        is_correlated = True
-                        break
+            # Add to selected
+            selected_rules.append(rule)
             
-            if not is_correlated:
-                selected_rules.append({
-                    'name': row['name'],
-                    'rule': row['condition'],
-                    'type': row['type'],
-                    'indicator': indicator,
-                    'sharpe': row['sharpe'],
-                    'profit_factor': row['profit_factor'],
-                    'win_rate': row['win_rate'],
-                    'cum_return': row['cum_return']
-                })
-                selected_indicators.append(indicator)
-                
-                if len(selected_rules) >= top_n:
-                    break
+            if len(selected_rules) >= top_n:
+                break
         
         return selected_rules
+
+# ===================== SIMPLE BACKTEST ENGINE =====================
+class SimpleBacktest:
+    """Simple backtesting engine for strategy evaluation"""
     
     @staticmethod
-    def backtest_simple(rules: List[Dict],
-                       indicators_df: pd.DataFrame,
-                       data_df: pd.DataFrame,
-                       initial_capital: float = 10000,
-                       commission: float = 0.001) -> Tuple[pd.DataFrame, Dict]:
-        """Simple backtest with combined rules"""
+    def backtest_rules(selected_rules: List[Dict],
+                      indicators_df: pd.DataFrame,
+                      data_df: pd.DataFrame,
+                      initial_capital: float = 10000,
+                      commission: float = 0.001) -> Tuple[pd.DataFrame, Dict]:
+        """Run backtest with selected rules"""
         
         portfolio = pd.DataFrame(index=data_df.index)
         portfolio['price'] = data_df['Close']
         portfolio['returns'] = portfolio['price'].pct_change()
         
+        # Combine indicators and price data
+        eval_df = pd.concat([indicators_df, data_df[['Close']]], axis=1)
+        
+        # Initialize signals
         buy_signals = np.zeros(len(portfolio))
         sell_signals = np.zeros(len(portfolio))
         
-        for rule in rules:
+        # Apply all rules
+        for rule in selected_rules:
             try:
-                parts = rule['rule'].split()
-                if len(parts) == 3:
-                    indicator_name, operator, threshold_str = parts
-                    threshold = float(threshold_str)
-                    
-                    if indicator_name in indicators_df.columns:
-                        indicator_values = indicators_df[indicator_name].values
-                        
-                        if operator == '>':
-                            mask = indicator_values > threshold
-                        elif operator == '>=':
-                            mask = indicator_values >= threshold
-                        elif operator == '<':
-                            mask = indicator_values < threshold
-                        elif operator == '<=':
-                            mask = indicator_values <= threshold
-                        else:
-                            continue
-                        
-                        if rule.get('type') == 'BUY':
-                            buy_signals += mask.astype(int)
-                        else:
-                            sell_signals += mask.astype(int)
+                signals = OptimizedCompoundRulesEngine.parse_compound_condition(
+                    rule['condition'], eval_df
+                )
+                
+                if signals is not None:
+                    if rule.get('trade_type') == 'BUY':
+                        buy_signals += signals.astype(int)
+                    elif rule.get('trade_type') == 'SELL':
+                        sell_signals += signals.astype(int)
             except:
                 continue
         
+        # Generate position signal
         portfolio['signal'] = np.sign(buy_signals - sell_signals)
         portfolio['position'] = portfolio['signal'].replace(0, np.nan).fillna(method='ffill').fillna(0)
         portfolio['trades'] = portfolio['position'].diff().fillna(0)
@@ -708,6 +877,7 @@ class UniversalTradingEngine:
         portfolio['peak'] = portfolio['equity'].cummax()
         portfolio['drawdown'] = (portfolio['equity'] / portfolio['peak'] - 1) * 100
         
+        # Calculate metrics
         total_return = (portfolio['equity'].iloc[-1] / initial_capital - 1) * 100
         daily_returns = portfolio['strategy_returns'].dropna()
         sharpe = daily_returns.mean() / (daily_returns.std() + 1e-8) * np.sqrt(252)
@@ -728,287 +898,12 @@ class UniversalTradingEngine:
             'sharpe': sharpe,
             'max_dd': max_dd,
             'win_rate': win_rate,
-            'profit_factor': profit_factor if profit_factor < 999 else 999,
+            'profit_factor': min(profit_factor, 999),
             'num_trades': num_trades,
             'final_equity': portfolio['equity'].iloc[-1]
         }
         
         return portfolio, metrics
-
-# ===================== COMPOUND RULES ENGINE =====================
-class CompoundRulesEngine:
-    """Enhanced trading engine with compound rule generation and evaluation"""
-    
-    @staticmethod
-    def parse_simple_condition(condition: str, data_df: pd.DataFrame) -> np.ndarray:
-        """Parse and evaluate a simple condition"""
-        parts = condition.strip().split()
-        if len(parts) != 3:
-            return None
-            
-        column, operator, value_or_column = parts
-        
-        if column not in data_df.columns:
-            return None
-            
-        try:
-            threshold = float(value_or_column)
-            is_value = True
-        except ValueError:
-            if value_or_column in data_df.columns:
-                threshold = data_df[value_or_column].values
-                is_value = False
-            else:
-                return None
-        
-        col_values = data_df[column].values
-        
-        if operator == '>':
-            result = col_values > threshold
-        elif operator == '>=':
-            result = col_values >= threshold
-        elif operator == '<':
-            result = col_values < threshold
-        elif operator == '<=':
-            result = col_values <= threshold
-        elif operator == '==':
-            result = col_values == threshold
-        elif operator == '!=':
-            result = col_values != threshold
-        else:
-            return None
-            
-        return result
-    
-    @staticmethod
-    def parse_compound_condition(condition: str, data_df: pd.DataFrame) -> np.ndarray:
-        """Parse and evaluate compound conditions with AND/OR logic"""
-        condition = condition.strip()
-        
-        if ' AND ' not in condition and ' OR ' not in condition:
-            return CompoundRulesEngine.parse_simple_condition(condition, data_df)
-        
-        or_parts = re.split(r'\s+OR\s+', condition)
-        
-        if len(or_parts) > 1:
-            or_results = []
-            for part in or_parts:
-                part_result = CompoundRulesEngine.parse_compound_condition(part.strip('()'), data_df)
-                if part_result is not None:
-                    or_results.append(part_result)
-            
-            if or_results:
-                result = or_results[0]
-                for r in or_results[1:]:
-                    result = result | r
-                return result
-            return None
-        
-        and_parts = re.split(r'\s+AND\s+', condition)
-        
-        if len(and_parts) > 1:
-            and_results = []
-            for part in and_parts:
-                part_result = CompoundRulesEngine.parse_simple_condition(part.strip('()'), data_df)
-                if part_result is not None:
-                    and_results.append(part_result)
-            
-            if and_results:
-                result = and_results[0]
-                for r in and_results[1:]:
-                    result = result & r
-                return result
-            return None
-        
-        return CompoundRulesEngine.parse_simple_condition(condition, data_df)
-    
-    @staticmethod
-    def generate_compound_rules(indicators: List[str], 
-                              thresholds: Dict[str, List[float]],
-                              max_depth: int = 2,
-                              operators: List[str] = ['>', '<', '>=', '<=']) -> List[Dict]:
-        """Generate compound rules with AND/OR combinations"""
-        
-        simple_rules = []
-        for indicator in indicators:
-            if indicator not in thresholds:
-                continue
-            for threshold in thresholds[indicator]:
-                for operator in operators:
-                    rule = {
-                        'condition': f"{indicator} {operator} {threshold:.6f}",
-                        'type': 'simple',
-                        'components': [indicator],
-                        'depth': 1
-                    }
-                    simple_rules.append(rule)
-        
-        compound_rules = []
-        
-        if max_depth >= 2:
-            for r1, r2 in combinations(simple_rules, 2):
-                if r1['components'][0] != r2['components'][0]:
-                    and_rule = {
-                        'condition': f"({r1['condition']}) AND ({r2['condition']})",
-                        'type': 'compound',
-                        'logic': 'AND',
-                        'components': r1['components'] + r2['components'],
-                        'depth': 2
-                    }
-                    compound_rules.append(and_rule)
-                    
-                    or_rule = {
-                        'condition': f"({r1['condition']}) OR ({r2['condition']})",
-                        'type': 'compound',
-                        'logic': 'OR',
-                        'components': r1['components'] + r2['components'],
-                        'depth': 2
-                    }
-                    compound_rules.append(or_rule)
-        
-        if max_depth >= 3:
-            two_condition_rules = [r for r in compound_rules if r['depth'] == 2 and r['logic'] == 'AND']
-            
-            for compound_rule in two_condition_rules[:50]:
-                for simple_rule in simple_rules[:20]:
-                    if simple_rule['components'][0] not in compound_rule['components']:
-                        three_rule = {
-                            'condition': f"({compound_rule['condition']}) AND ({simple_rule['condition']})",
-                            'type': 'compound',
-                            'logic': 'AND',
-                            'components': compound_rule['components'] + simple_rule['components'],
-                            'depth': 3
-                        }
-                        compound_rules.append(three_rule)
-        
-        return simple_rules + compound_rules
-    
-    @staticmethod
-    def evaluate_rule_performance(condition: str,
-                                 data_df: pd.DataFrame,
-                                 indicators_df: pd.DataFrame,
-                                 return_periods: List[int] = [4, 6, 8, 10]) -> Dict:
-        """Evaluate performance metrics for a rule"""
-        
-        eval_df = pd.concat([indicators_df, data_df[['Close']]], axis=1)
-        signals = CompoundRulesEngine.parse_compound_condition(condition, eval_df)
-        
-        if signals is None or signals.sum() < 10:
-            return None
-        
-        metrics = {
-            'condition': condition,
-            'num_signals': int(signals.sum()),
-            'signal_pct': (signals.sum() / len(signals)) * 100
-        }
-        
-        for period in return_periods:
-            returns = eval_df['Close'].pct_change(period).shift(-period) * 100
-            signal_returns = returns[signals]
-            signal_returns = signal_returns.dropna()
-            
-            if len(signal_returns) < 5:
-                continue
-            
-            mean_ret = signal_returns.mean()
-            std_ret = signal_returns.std()
-            win_rate = (signal_returns > 0).mean() * 100
-            
-            pos_returns = signal_returns[signal_returns > 0].sum()
-            neg_returns = -signal_returns[signal_returns < 0].sum()
-            profit_factor = pos_returns / neg_returns if neg_returns > 0 else 999
-            
-            sharpe = (mean_ret / (std_ret + 1e-8)) * np.sqrt(252 / period)
-            
-            metrics[f'return_{period}d'] = mean_ret
-            metrics[f'std_{period}d'] = std_ret
-            metrics[f'sharpe_{period}d'] = sharpe
-            metrics[f'winrate_{period}d'] = win_rate
-            metrics[f'pf_{period}d'] = min(profit_factor, 999)
-        
-        sharpe_cols = [k for k in metrics.keys() if 'sharpe' in k]
-        if sharpe_cols:
-            metrics['avg_sharpe'] = np.mean([metrics[col] for col in sharpe_cols])
-        
-        pf_cols = [k for k in metrics.keys() if 'pf' in k]
-        if pf_cols:
-            metrics['avg_pf'] = np.mean([metrics[col] for col in pf_cols])
-            
-        return metrics
-    
-    @staticmethod
-    def optimize_compound_rules(data_df: pd.DataFrame,
-                              indicators_df: pd.DataFrame,
-                              indicators_to_use: List[str] = None,
-                              percentiles: List[int] = [10, 25, 50, 75, 90],
-                              max_depth: int = 2,
-                              min_correlation_improvement: float = 0.05) -> pd.DataFrame:
-        """Generate and optimize compound rules"""
-        
-        if indicators_to_use is None:
-            indicators_to_use = indicators_df.columns[:10]
-        
-        thresholds = {}
-        for indicator in indicators_to_use:
-            if indicator in indicators_df.columns:
-                data = indicators_df[indicator].dropna()
-                if len(data) > 100:
-                    thresholds[indicator] = [
-                        data.quantile(p/100) for p in percentiles
-                    ]
-        
-        rules = CompoundRulesEngine.generate_compound_rules(
-            list(thresholds.keys()),
-            thresholds,
-            max_depth=max_depth
-        )
-        
-        results = []
-        total_rules = len(rules)
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        for i, rule in enumerate(rules):
-            if i % 100 == 0:
-                progress_bar.progress(i / total_rules)
-                status_text.text(f"Evaluating rule {i+1} of {total_rules}")
-            
-            metrics = CompoundRulesEngine.evaluate_rule_performance(
-                rule['condition'],
-                data_df,
-                indicators_df
-            )
-            
-            if metrics:
-                metrics['type'] = rule['type']
-                metrics['depth'] = rule.get('depth', 1)
-                metrics['logic'] = rule.get('logic', 'simple')
-                results.append(metrics)
-        
-        progress_bar.empty()
-        status_text.empty()
-        
-        if results:
-            results_df = pd.DataFrame(results)
-            
-            if 'avg_sharpe' in results_df.columns:
-                results_df = results_df.sort_values('avg_sharpe', ascending=False)
-            
-            simple_rules = results_df[results_df['type'] == 'simple']
-            compound_rules = results_df[results_df['type'] == 'compound']
-            
-            if not simple_rules.empty and not compound_rules.empty:
-                best_simple_sharpe = simple_rules['avg_sharpe'].max()
-                
-                for idx in compound_rules.index:
-                    compound_sharpe = compound_rules.loc[idx, 'avg_sharpe']
-                    improvement = (compound_sharpe - best_simple_sharpe) / abs(best_simple_sharpe) * 100
-                    results_df.loc[idx, 'sharpe_improvement'] = improvement
-            
-            return results_df
-        
-        return pd.DataFrame()
 
 # ===================== FUNCIONES DE CÁLCULO =====================
 @st.cache_data
@@ -1544,16 +1439,18 @@ def main():
                     percentiles = st.multiselect(
                         "PERCENTILES FOR THRESHOLDS",
                         [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95],
-                        default=[10, 20, 30, 50, 70, 80, 90]
+                        default=[10, 30, 50, 70, 90]
                     )
                 
                 with col2:
                     use_compound_rules = st.checkbox("Use Compound Rules", value=True)
                     if use_compound_rules:
-                        max_depth = st.select_slider(
-                            "Max Rule Depth",
-                            options=[1, 2, 3],
-                            value=2
+                        max_compound_rules = st.number_input(
+                            "Max Compound Rules",
+                            min_value=50,
+                            max_value=500,
+                            value=200,
+                            step=50
                         )
                 
                 with col3:
@@ -1597,115 +1494,96 @@ def main():
                         """)
                     
                     if use_compound_rules:
-                        st.markdown("#### 📊 Generating Compound Rules")
-                        compound_engine = CompoundRulesEngine()
+                        st.markdown("#### 📊 Generating Optimized Rules")
+                        engine = OptimizedCompoundRulesEngine()
                         
-                        results_df = compound_engine.optimize_compound_rules(
+                        results_df = engine.optimize_fast(
                             data_df=in_sample_data,
                             indicators_df=in_sample_indicators,
                             indicators_to_use=in_sample_indicators.columns[:max_indicators_to_analyze],
                             percentiles=percentiles,
-                            max_depth=max_depth
+                            max_compound_rules=max_compound_rules,
+                            holding_period=holding_period
                         )
                         
                         if not results_df.empty:
-                            st.success(f"✅ Generated and evaluated {len(results_df)} rules")
+                            st.success(f"✅ Evaluated {len(results_df)} rules")
                             
-                            st.markdown("##### Top 15 Rules (In-Sample)")
-                            display_df = results_df[['condition', 'type', 'num_signals', 'avg_sharpe', 'avg_pf']].head(15).copy()
-                            display_df.columns = ['Rule', 'Type', 'Signals', 'Avg Sharpe', 'Avg PF']
-                            
-                            st.dataframe(
-                                display_df.style.format({
-                                    'Avg Sharpe': '{:.2f}',
-                                    'Avg PF': '{:.2f}'
-                                }).background_gradient(subset=['Avg Sharpe'], cmap='RdYlGn'),
-                                use_container_width=True,
-                                height=400
-                            )
-                    else:
-                        st.markdown("#### 📊 Generating Simple Rules")
-                        engine = UniversalTradingEngine()
-                        
-                        all_rules = engine.generate_all_rules(
-                            in_sample_indicators,
-                            percentiles,
-                            ['>', '<', '>=', '<='],
-                            max_indicators_to_analyze
-                        )
-                        st.success(f"✅ Generated {len(all_rules)} rules")
-                        
-                        st.markdown("#### Evaluating Rules (In-Sample)")
-                        is_results = engine.evaluate_rules_batch(
-                            all_rules,
-                            in_sample_indicators,
-                            in_sample_data,
-                            holding_period,
-                            min_signals
-                        )
-                        
-                        if not is_results.empty:
+                            # Select best rules
                             best_rules = engine.select_best_rules(
-                                is_results,
+                                results_df,
                                 in_sample_indicators,
                                 top_rules,
                                 max_correlation
                             )
                             
-                            st.success(f"✅ Selected {len(best_rules)} non-correlated rules")
+                            # Display top rules
+                            st.markdown("##### Top Rules (In-Sample)")
+                            display_df = results_df[['condition', 'type', 'num_signals', 'sharpe', 'profit_factor', 'win_rate']].head(15).copy()
+                            display_df.columns = ['Rule', 'Type', 'Signals', 'Sharpe', 'PF', 'Win%']
                             
-                            oos_rules = [{'condition': r['rule'], 'name': r['name'], 'type': 'selected'} for r in best_rules]
-                            
-                            oos_results = engine.evaluate_rules_batch(
-                                oos_rules,
-                                out_sample_indicators,
-                                out_sample_data,
-                                holding_period,
-                                min_signals=5
+                            st.dataframe(
+                                display_df.style.format({
+                                    'Sharpe': '{:.2f}',
+                                    'PF': '{:.2f}',
+                                    'Win%': '{:.1f}'
+                                }).background_gradient(subset=['Sharpe'], cmap='RdYlGn'),
+                                use_container_width=True,
+                                height=400
                             )
                             
-                            full_portfolio, full_metrics = engine.backtest_simple(
+                            # Backtest
+                            st.markdown("#### 📈 Backtesting")
+                            
+                            # Full period backtest
+                            full_portfolio, full_metrics = SimpleBacktest.backtest_rules(
                                 best_rules[:5],
                                 indicators,
                                 data,
                                 10000
                             )
                             
-                            is_portfolio, is_metrics = engine.backtest_simple(
+                            # IS backtest
+                            is_portfolio, is_metrics = SimpleBacktest.backtest_rules(
                                 best_rules[:5],
                                 in_sample_indicators,
                                 in_sample_data,
                                 10000
                             )
                             
-                            oos_portfolio, oos_metrics = engine.backtest_simple(
+                            # OOS backtest
+                            oos_portfolio, oos_metrics = SimpleBacktest.backtest_rules(
                                 best_rules[:5],
                                 out_sample_indicators,
                                 out_sample_data,
                                 10000
                             )
                             
+                            # Metrics table
                             st.markdown("##### Performance Metrics")
                             
                             metrics_table = pd.DataFrame({
-                                'Metric': ['Cumulative Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Profit Factor'],
+                                'Metric': ['Cumulative Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Profit Factor', 'Win Rate (%)'],
                                 'In-Sample': [
                                     is_metrics['cum_return'],
                                     is_metrics['sharpe'],
                                     is_metrics['max_dd'],
-                                    is_metrics['profit_factor']
+                                    is_metrics['profit_factor'],
+                                    is_metrics['win_rate']
                                 ],
                                 'Out-of-Sample': [
                                     oos_metrics['cum_return'],
                                     oos_metrics['sharpe'],
                                     oos_metrics['max_dd'],
-                                    oos_metrics['profit_factor']
+                                    oos_metrics['profit_factor'],
+                                    oos_metrics['win_rate']
                                 ],
                                 'Full Period': [
                                     full_metrics['cum_return'],
                                     full_metrics['sharpe'],
                                     full_metrics['max_dd'],
-                                    full_metrics['profit_factor']
+                                    full_metrics['profit_factor'],
+                                    full_metrics['win_rate']
                                 ]
                             })
                             
@@ -1718,6 +1596,7 @@ def main():
                                 use_container_width=True
                             )
                             
+                            # Equity curve
                             fig = go.Figure()
                             
                             fig.add_trace(
@@ -1760,6 +1639,35 @@ def main():
                             )
                             
                             st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Key metrics
+                            col1, col2, col3, col4 = st.columns(4)
+                            
+                            with col1:
+                                st.metric(
+                                    "TOTAL RETURN",
+                                    f"{full_metrics['cum_return']:.1f}%"
+                                )
+                            
+                            with col2:
+                                st.metric(
+                                    "SHARPE RATIO",
+                                    f"{full_metrics['sharpe']:.2f}"
+                                )
+                            
+                            with col3:
+                                st.metric(
+                                    "MAX DRAWDOWN",
+                                    f"{full_metrics['max_dd']:.1f}%"
+                                )
+                            
+                            with col4:
+                                st.metric(
+                                    "PROFIT FACTOR",
+                                    f"{full_metrics['profit_factor']:.2f}"
+                                )
+                        else:
+                            st.warning("No valid rules found. Try adjusting parameters.")
         
         with tab3:
             st.markdown("### 💾 Opciones de Exportación")
