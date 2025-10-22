@@ -3244,7 +3244,7 @@ def create_scatter_performance(results_df: pd.DataFrame) -> go.Figure:
 
 def main():
     st.markdown(f"""
-        <h1 class='main-header'>Advanced Quantitative Analysis Platform</h1>
+        <h1 class='main-header'>RULE-EXTRACTION PLAYGROUND</h1>
         <p class='sub-header'>
             {TechnicalIndicators.get_total_count()} TECHNICAL INDICATORS · PSO & GENETIC ALGORITHMS · IS/OOS VALIDATION
         </p>
