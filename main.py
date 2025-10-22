@@ -3272,14 +3272,14 @@ def main():
         
         # Configuration state - preserve user inputs
         st.session_state.ticker_input = "SPY"
-        st.session_state.period_input = "2y"
+        st.session_state.period_input = "max"
         st.session_state.last_tab = "📊 ANALYSIS"
     
     # Restore or initialize config values
     if 'ticker_input' not in st.session_state:
         st.session_state.ticker_input = "SPY"
     if 'period_input' not in st.session_state:
-        st.session_state.period_input = "2y"
+        st.session_state.period_input = "max"
     
     # ===================== DATA CONFIGURATION =====================
     st.markdown("<div class='config-section'>", unsafe_allow_html=True)
