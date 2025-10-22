@@ -3244,7 +3244,7 @@ def create_scatter_performance(results_df: pd.DataFrame) -> go.Figure:
 
 def main():
     st.markdown(f"""
-        <h1 class='main-header'>RULE-EXTRACTION PLAYGROUND</h1>
+        <h1 class='main-header'>Advanced Quantitative Analysis Platform</h1>
         <p class='sub-header'>
             {TechnicalIndicators.get_total_count()} TECHNICAL INDICATORS · PSO & GENETIC ALGORITHMS · IS/OOS VALIDATION
         </p>
@@ -3272,14 +3272,14 @@ def main():
         
         # Configuration state - preserve user inputs
         st.session_state.ticker_input = "SPY"
-        st.session_state.period_input = "max"
+        st.session_state.period_input = "2y"
         st.session_state.last_tab = "📊 ANALYSIS"
     
     # Restore or initialize config values
     if 'ticker_input' not in st.session_state:
         st.session_state.ticker_input = "SPY"
     if 'period_input' not in st.session_state:
-        st.session_state.period_input = "max"
+        st.session_state.period_input = "2y"
     
     # ===================== DATA CONFIGURATION =====================
     st.markdown("<div class='config-section'>", unsafe_allow_html=True)
@@ -3633,6 +3633,56 @@ def main():
                         {est_time}
                         """)
                 
+                # RULE VALIDATION SETTINGS (NEW)
+                with st.expander("🔧 Rule Validation Settings", expanded=False):
+                    st.markdown("""
+                    **Control how strictly rules are validated:**
+                    - Higher values = more lenient (keeps more rules)
+                    - Lower values = stricter (filters more rules)
+                    """)
+                    
+                    val_col1, val_col2, val_col3 = st.columns(3)
+                    
+                    with val_col1:
+                        enable_validation = st.checkbox(
+                            "Enable Rule Validation",
+                            value=True,
+                            help="Automatically filter rules with unrealistic thresholds"
+                        )
+                        
+                        show_validation_details = st.checkbox(
+                            "Show Filtering Details",
+                            value=False,
+                            help="Display which rules were filtered and why"
+                        )
+                    
+                    with val_col2:
+                        data_range_margin = st.slider(
+                            "Data Range Margin (%)",
+                            min_value=5,
+                            max_value=50,
+                            value=15,
+                            step=5,
+                            help="How far beyond min/max to allow thresholds (15% = default)"
+                        )
+                    
+                    with val_col3:
+                        extreme_margin = st.slider(
+                            "Extreme Value Margin (%)",
+                            min_value=10,
+                            max_value=100,
+                            value=20,
+                            step=10,
+                            help="How far beyond 99th percentile to allow (20% = default)"
+                        )
+                    
+                    st.info(f"""
+                    **Current Settings:**
+                    - Validation: {'Enabled ✓' if enable_validation else 'Disabled ✗'}
+                    - Range Margin: ±{data_range_margin}% of data range
+                    - Extreme Margin: +{extreme_margin}% beyond percentiles
+                    """)
+                
                 # SUBMIT BUTTON
                 st.markdown("---")
                 run_advanced = st.form_submit_button(
@@ -3882,104 +3932,150 @@ def main():
                         
                         st.success(f"✅ Validated {len(brute_results)} rules")
                 
-                
                 # ============= VALIDATE AND SAVE RESULTS =============
                 if all_results:
                     results_df = pd.DataFrame(all_results)
+                    original_count = len(results_df)
                     
                     # === RULE VALIDATION (filters out bad thresholds) ===
-                    st.info("🔍 Validating rule thresholds...")
-                    
-                    # Calculate indicator statistics
-                    indicator_stats = {}
-                    for col in indicators.columns:
-                        if col not in ['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']:
-                            data = indicators[col].dropna()
-                            if len(data) > 0:
-                                indicator_stats[col] = {
-                                    'min': data.min(),
-                                    'max': data.max(),
-                                    'p01': data.quantile(0.01),
-                                    'p99': data.quantile(0.99),
-                                }
-                    
-                    # Validation function
-                    def is_valid_rule(rule_str):
-                        """Check if rule has realistic thresholds"""
-                        import re
+                    if enable_validation:
+                        st.info("🔍 Validating rule thresholds...")
                         
-                        # Parse conditions
-                        conditions = re.split(r'\s+(?:AND|OR)\s+', rule_str)
+                        # Calculate indicator statistics
+                        indicator_stats = {}
+                        for col in indicators.columns:
+                            if col not in ['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']:
+                                data = indicators[col].dropna()
+                                if len(data) > 0:
+                                    indicator_stats[col] = {
+                                        'min': data.min(),
+                                        'max': data.max(),
+                                        'p01': data.quantile(0.01),
+                                        'p99': data.quantile(0.99),
+                                        'mean': data.mean(),
+                                        'std': data.std(),
+                                    }
                         
-                        for condition in conditions:
-                            condition = condition.strip('() ')
-                            
-                            # Extract indicator, operator, threshold
-                            match = re.match(r'([A-Z_]+_\d+)\s*([><]=?)\s*([-+]?\d+\.?\d*)', condition)
-                            if not match:
-                                continue
-                            
-                            indicator, operator, threshold = match.groups()
-                            threshold = float(threshold)
-                            
-                            if indicator not in indicator_stats:
-                                return False
-                            
-                            stats = indicator_stats[indicator]
-                            data_range = stats['max'] - stats['min']
-                            
-                            # Check for bounded indicators (RSI, Stochastic, etc.)
-                            if any(x in indicator.upper() for x in ['RSI', 'STOCH', 'WILLR']):
-                                if threshold < 0 or threshold > 100:
-                                    return False
-                            
-                            # Check for volatility indicators (must be positive)
-                            if any(x in indicator.upper() for x in ['ATR', 'NATR', 'BBANDS', 'STDDEV']):
-                                if threshold < 0:
-                                    return False
-                            
-                            # Check if threshold is way outside data range
-                            margin = data_range * 0.15
-                            if operator in ['>', '>=']:
-                                if threshold > stats['max'] + margin:
-                                    return False
-                                # Too extreme (beyond 99th percentile + 20% range)
-                                if threshold > stats['p99'] + data_range * 0.2:
-                                    return False
-                            elif operator in ['<', '<=']:
-                                if threshold < stats['min'] - margin:
-                                    return False
-                                # Too extreme (below 1st percentile - 20% range)
-                                if threshold < stats['p01'] - data_range * 0.2:
-                                    return False
+                        # Convert margins from percentage to decimal
+                        range_margin_pct = data_range_margin / 100.0
+                        extreme_margin_pct = extreme_margin / 100.0
                         
-                        return True
-                    
-                    # Filter rules
-                    original_count = len(results_df)
-                    results_df['is_valid'] = results_df['rule'].apply(is_valid_rule)
-                    valid_results = results_df[results_df['is_valid']].drop(columns=['is_valid'])
-                    invalid_count = original_count - len(valid_results)
-                    
-                    # Show results
-                    if invalid_count > 0:
-                        st.warning(f"⚠️ Filtered out {invalid_count} rules with unrealistic thresholds "
-                                 f"({invalid_count/original_count*100:.1f}% of total)")
+                        # Validation function with detailed feedback
+                        def validate_rule_detailed(rule_str):
+                            """Check if rule has realistic thresholds and return reason"""
+                            import re
+                            
+                            # Parse conditions
+                            conditions = re.split(r'\s+(?:AND|OR)\s+', rule_str)
+                            reasons = []
+                            
+                            for condition in conditions:
+                                condition = condition.strip('() ')
+                                
+                                # Extract indicator, operator, threshold
+                                match = re.match(r'([A-Z_]+_\d+)\s*([><]=?)\s*([-+]?\d+\.?\d*)', condition)
+                                if not match:
+                                    continue
+                                
+                                indicator, operator, threshold = match.groups()
+                                threshold = float(threshold)
+                                
+                                if indicator not in indicator_stats:
+                                    reasons.append(f"{indicator} not in data")
+                                    return False, reasons
+                                
+                                stats = indicator_stats[indicator]
+                                data_range = stats['max'] - stats['min']
+                                
+                                # Check for bounded indicators (RSI, Stochastic, etc.)
+                                if any(x in indicator.upper() for x in ['RSI', 'STOCH', 'WILLR']):
+                                    if threshold < 0 or threshold > 100:
+                                        reasons.append(f"{indicator} {operator} {threshold:.2f} (bounded 0-100)")
+                                        return False, reasons
+                                
+                                # Check for volatility indicators (must be positive)
+                                if any(x in indicator.upper() for x in ['ATR', 'NATR', 'BBANDS', 'STDDEV']):
+                                    if threshold < 0:
+                                        reasons.append(f"{indicator} < 0 (volatility must be positive)")
+                                        return False, reasons
+                                
+                                # Check if threshold is way outside data range
+                                margin = data_range * range_margin_pct
+                                if operator in ['>', '>=']:
+                                    if threshold > stats['max'] + margin:
+                                        reasons.append(f"{indicator} > {threshold:.2f} (max: {stats['max']:.2f})")
+                                        return False, reasons
+                                    # Too extreme (beyond 99th percentile + margin)
+                                    if threshold > stats['p99'] + data_range * extreme_margin_pct:
+                                        reasons.append(f"{indicator} > {threshold:.2f} (99th: {stats['p99']:.2f})")
+                                        return False, reasons
+                                elif operator in ['<', '<=']:
+                                    if threshold < stats['min'] - margin:
+                                        reasons.append(f"{indicator} < {threshold:.2f} (min: {stats['min']:.2f})")
+                                        return False, reasons
+                                    # Too extreme (below 1st percentile - margin)
+                                    if threshold < stats['p01'] - data_range * extreme_margin_pct:
+                                        reasons.append(f"{indicator} < {threshold:.2f} (1st: {stats['p01']:.2f})")
+                                        return False, reasons
+                            
+                            return True, []
+                        
+                        # Filter rules with detailed tracking
+                        validation_results = results_df['rule'].apply(validate_rule_detailed)
+                        results_df['is_valid'] = validation_results.apply(lambda x: x[0])
+                        results_df['validation_reason'] = validation_results.apply(lambda x: ', '.join(x[1]))
+                        
+                        # Separate valid and invalid
+                        valid_results = results_df[results_df['is_valid']].drop(columns=['is_valid', 'validation_reason'])
+                        invalid_results = results_df[~results_df['is_valid']]
+                        invalid_count = len(invalid_results)
+                        
+                        # Show filtering statistics
+                        if invalid_count > 0:
+                            st.warning(f"⚠️ Filtered out {invalid_count} rules with unrealistic thresholds "
+                                     f"({invalid_count/original_count*100:.1f}% of total)")
+                            
+                            # Show detailed filtering info if requested
+                            if show_validation_details and len(invalid_results) > 0:
+                                with st.expander(f"📋 View {min(20, len(invalid_results))} Filtered Rules (Click to expand)", expanded=False):
+                                    st.markdown("**Sample of filtered rules and reasons:**")
+                                    
+                                    # Group by reason
+                                    reason_counts = invalid_results['validation_reason'].value_counts()
+                                    
+                                    st.markdown("**Filtering Breakdown:**")
+                                    for reason, count in reason_counts.head(10).items():
+                                        st.markdown(f"- `{reason}`: **{count} rules** ({count/invalid_count*100:.1f}%)")
+                                    
+                                    st.markdown("---")
+                                    st.markdown("**Examples of filtered rules:**")
+                                    
+                                    for idx, row in invalid_results.head(20).iterrows():
+                                        st.markdown(f"❌ `{row['rule']}`")
+                                        st.markdown(f"   ↳ *{row['validation_reason']}*")
+                        else:
+                            st.success(f"✅ All {original_count} rules passed validation!")
+                        
+                        results_to_save = valid_results
+                    else:
+                        st.info("ℹ️ Rule validation disabled - using all generated rules")
+                        results_to_save = results_df
                     
                     st.session_state.advanced_analysis_done = True
-                    st.session_state.advanced_results = valid_results
+                    st.session_state.advanced_results = results_to_save
                     st.session_state.optimization_histories = optimization_histories
                     
-                    if len(valid_results) > 0:
-                        st.success(f"✅ Analysis complete! {len(valid_results)} valid rules found. Scroll down to see results.")
+                    if len(results_to_save) > 0:
+                        st.success(f"✅ Analysis complete! {len(results_to_save)} valid rules found. Scroll down to see results.")
                     else:
                         st.warning("⚠️ No valid rules passed threshold validation.")
                         st.info("""
-                        **💡 All rules were filtered out. Try:**
-                        1. Increase the data range (more historical data)
-                        2. Adjust optimization parameters
-                        3. Use different indicators
-                        4. Check if indicators are calculating correctly
+                        **💡 Try these adjustments:**
+                        1. **Disable validation** temporarily to see all rules
+                        2. **Increase margins** in validation settings (use 30-50%)
+                        3. **Lower optimization thresholds** (Min IS Sharpe, Min OOS Sharpe)
+                        4. Use **more historical data** for better indicator coverage
+                        5. Try **different indicators** or optimization methods
                         """)
                         
                 else:
@@ -3996,7 +4092,6 @@ def main():
                     4. Try **Brute Force** method (tests more combinations)
                     5. Increase holding period to 15-30 days
                     """)
-                
                 st.rerun()
             
             # ============= DISPLAY RESULTS =============
